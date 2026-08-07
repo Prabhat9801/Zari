@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Zari — From Inspiration to Stitching"
+description = "A premium Indian custom-fashion marketplace where customers turn inspiration into manufacturable designs, understand transparent pricing, optimize budgets, and find verified designers."
+version = "1.0.0"
+id = "artifacts/zari"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22516
+
+[services.development]
+run = "pnpm --filter @workspace/zari run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/zari", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/zari/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22516"
+BASE_PATH = "/"
