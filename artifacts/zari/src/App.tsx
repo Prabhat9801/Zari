@@ -5,6 +5,7 @@ import { ArrowRight, ArrowUpRight, Bell, Camera, Check, ChevronRight, Copy, Eye,
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Route, Switch, Router as WouterRouter, useLocation, useParams } from 'wouter';
 import NotFound from '@/pages/not-found';
+import { ThreadScene } from '@/components/ThreadScene';
 
 const queryClient = new QueryClient();
 
@@ -115,6 +116,7 @@ function Landing() {
           <div className="hero-cta"><Link href="/app" className="button button-primary" data-testid="button-hero-start">Describe your outfit <ArrowRight size={16} /></Link><a href="#how-it-works" className="text-link" data-testid="link-see-process">See how it works <ArrowUpRight size={14} /></a></div>
         </div>
         <div className="hero-art" aria-label="Pastel lavender lehenga editorial visual">
+           <ThreadScene className="hero-thread" />
           <div className="hero-card hero-card-main"><GarmentArt /></div><div className="hero-card hero-card-side"><GarmentArt tone="peach" /></div>
           <div className="hero-stamp">Made for<br />your moment<small>Est. 2024 · India</small></div>
           <div className="floating-note"><div className="eyebrow">Your brief</div><strong>Pastel lavender, movement, not too much sparkle</strong><span>Ready to make</span></div>

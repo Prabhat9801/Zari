@@ -566,3 +566,371 @@ a { color: inherit; text-decoration: none; }
 @media (prefers-reduced-motion: reduce) {
   *, *:before, *:after { scroll-behavior: auto !important; animation-duration: .001ms !important; transition-duration: .001ms !important; }
 }
+
+/* Zari atelier refresh — softer, warmer, and more tactile */
+:root {
+  --background: 28 48% 97%;
+  --foreground: 326 18% 23%;
+  --border: 24 27% 86%;
+  --input: 24 27% 86%;
+  --ring: 346 48% 64%;
+  --card: 30 55% 99%;
+  --card-foreground: 326 18% 23%;
+  --card-border: 24 28% 88%;
+  --popover: 30 55% 99%;
+  --popover-foreground: 326 18% 23%;
+  --popover-border: 24 27% 86%;
+  --primary: 322 27% 31%;
+  --primary-foreground: 28 48% 97%;
+  --secondary: 26 42% 93%;
+  --secondary-foreground: 326 18% 23%;
+  --muted: 26 30% 92%;
+  --muted-foreground: 326 10% 49%;
+  --accent: 349 48% 68%;
+  --accent-foreground: 322 27% 24%;
+  --sidebar: 322 27% 31%;
+  --sidebar-foreground: 28 48% 97%;
+  --sidebar-border: 322 21% 40%;
+  --sidebar-primary: 349 48% 68%;
+  --sidebar-primary-foreground: 322 27% 24%;
+  --sidebar-accent: 322 24% 38%;
+  --sidebar-accent-foreground: 28 48% 97%;
+  --sidebar-ring: 349 48% 68%;
+  --shadow-sm: 0 8px 22px rgba(99, 65, 83, .07);
+  --shadow-md: 0 16px 38px rgba(99, 65, 83, .11);
+  --shadow-lg: 0 28px 70px rgba(99, 65, 83, .16);
+}
+
+body {
+  background:
+    radial-gradient(circle at 8% 4%, hsl(349 52% 93% / .55), transparent 28rem),
+    radial-gradient(circle at 93% 28%, hsl(30 55% 93% / .72), transparent 30rem),
+    hsl(var(--background));
+}
+
+.landing {
+  background:
+    linear-gradient(180deg, hsl(28 48% 97% / .7), hsl(28 48% 97%)),
+    radial-gradient(circle at 78% 11%, hsl(349 52% 91% / .75), transparent 26rem);
+}
+
+.brand-mark {
+  background: linear-gradient(145deg, hsl(349 48% 68%), hsl(322 27% 42%));
+  box-shadow: 0 8px 18px hsl(322 27% 31% / .2);
+}
+
+.landing-nav {
+  animation: atelier-reveal .7s ease both;
+}
+
+.hero-copy {
+  animation: atelier-reveal .8s .08s ease both;
+}
+
+.hero-art {
+  isolation: isolate;
+  animation: atelier-reveal .9s .16s ease both;
+}
+
+.hero:before {
+  background: radial-gradient(circle, hsl(349 52% 90% / .7), hsl(30 55% 93% / .25) 62%, transparent 72%);
+  filter: blur(2px);
+  animation: soft-breathe 7s ease-in-out infinite;
+}
+
+.hero-card {
+  border-color: hsl(30 55% 99% / .95);
+  border-radius: 2px 20px 2px 20px;
+  transition: transform .45s cubic-bezier(.2,.8,.2,1), box-shadow .45s ease;
+}
+
+.hero-card-main {
+  box-shadow: 0 28px 70px hsl(322 27% 31% / .2);
+}
+
+.hero-art:hover .hero-card-main {
+  transform: rotate(1deg) translateY(-6px);
+  box-shadow: 0 34px 80px hsl(322 27% 31% / .24);
+}
+
+.hero-art:hover .hero-card-side {
+  transform: rotate(-5deg) translateY(-9px);
+}
+
+.hero-stamp {
+  background: linear-gradient(145deg, hsl(322 27% 31%), hsl(322 27% 40%));
+  box-shadow: 0 12px 30px hsl(322 27% 31% / .23);
+}
+
+.floating-note {
+  border-color: hsl(349 48% 68% / .42);
+  border-radius: 3px 16px 3px 16px;
+  box-shadow: 0 16px 34px hsl(322 27% 31% / .12);
+  animation: note-float 5s ease-in-out infinite;
+}
+
+.thread-scene {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: .95;
+}
+
+.thread-scene canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.hero-thread {
+  inset: 8% -8% 8% 8%;
+  opacity: .78;
+  mix-blend-mode: multiply;
+}
+
+.hero-art > :not(.hero-thread) {
+  z-index: 1;
+}
+
+.button {
+  box-shadow: 0 6px 14px hsl(322 27% 31% / .06);
+  transition: transform .25s cubic-bezier(.2,.8,.2,1), box-shadow .25s ease, background-color .25s ease, border-color .25s ease;
+}
+
+.button:hover {
+  box-shadow: 0 10px 22px hsl(322 27% 31% / .13);
+}
+
+.button-primary {
+  background: linear-gradient(135deg, hsl(322 27% 31%), hsl(322 27% 39%));
+}
+
+.button-primary:hover {
+  background: linear-gradient(135deg, hsl(322 27% 36%), hsl(349 35% 48%));
+}
+
+.button-coral {
+  background: linear-gradient(135deg, hsl(349 48% 68%), hsl(349 48% 75%));
+}
+
+.surface,
+.designer-card,
+.match-card,
+.saved-card,
+.recommended-item,
+.process-card,
+.quote-row {
+  border-color: hsl(24 27% 86% / .85);
+  box-shadow: 0 8px 22px hsl(322 27% 31% / .035);
+  transition: transform .3s ease, box-shadow .3s ease, border-color .3s ease;
+}
+
+.surface:hover,
+.designer-card:hover,
+.match-card:hover,
+.saved-card:hover,
+.recommended-item:hover {
+  transform: translateY(-4px);
+  border-color: hsl(349 48% 68% / .5);
+  box-shadow: 0 16px 34px hsl(322 27% 31% / .1);
+}
+
+.app-shell {
+  background:
+    radial-gradient(circle at 88% 2%, hsl(349 52% 94% / .7), transparent 26rem),
+    hsl(var(--background));
+}
+
+.sidebar {
+  background: linear-gradient(160deg, hsl(322 27% 31%), hsl(322 25% 26%));
+  box-shadow: 12px 0 34px hsl(322 27% 31% / .1);
+}
+
+.side-link {
+  transition: background .25s ease, color .25s ease, transform .25s ease;
+}
+
+.side-link:hover {
+  transform: translateX(3px);
+}
+
+.side-link.active {
+  background: linear-gradient(90deg, hsl(349 48% 68% / .2), hsl(349 48% 68% / .05));
+}
+
+.icon-button {
+  transition: transform .25s ease, background-color .25s ease, border-color .25s ease;
+}
+
+.icon-button:hover {
+  transform: translateY(-2px) rotate(-4deg);
+  border-color: hsl(349 48% 68% / .6);
+  background: hsl(349 52% 94%);
+}
+
+.app-heading h1,
+.profile-hero-copy h1,
+.auth-form h2,
+.loading-stage h1 {
+  text-wrap: balance;
+}
+
+.composer,
+.optimizer,
+.escrow,
+.market-section,
+.auth-aside {
+  background: linear-gradient(145deg, hsl(322 27% 31%), hsl(322 25% 25%));
+}
+
+.composer {
+  border-radius: 5px 24px 5px 24px;
+  box-shadow: 0 22px 44px hsl(322 27% 31% / .16);
+}
+
+.composer:after {
+  content: '✦';
+  color: hsl(349 48% 78%);
+  font-size: 34px;
+  opacity: .5;
+  align-self: center;
+}
+
+.design-thumb,
+.maker-art,
+.portfolio-art,
+.preview-cover,
+.profile-hero-art,
+.concept-visual,
+.rec-art,
+.order-thumb {
+  transition: transform .45s ease, filter .45s ease;
+}
+
+.design-tile:hover .design-thumb,
+.saved-card:hover .design-thumb,
+.maker-card:hover .maker-art,
+.portfolio-piece:hover .portfolio-art {
+  transform: scale(1.025);
+  filter: saturate(1.08);
+}
+
+.maker-card,
+.portfolio-piece,
+.profile-panel,
+.builder-section {
+  border-radius: 5px 18px 5px 18px;
+}
+
+.maker-card {
+  transition: transform .35s ease, background .35s ease, border-color .35s ease;
+}
+
+.maker-card:hover {
+  transform: translateY(-7px) rotate(-.5deg);
+  background: hsl(349 48% 68% / .11);
+  border-color: hsl(349 48% 68% / .55);
+}
+
+.studio-canvas {
+  background:
+    radial-gradient(circle at 50% 40%, hsl(349 52% 96%), transparent 20rem),
+    linear-gradient(145deg, hsl(28 42% 93%), hsl(349 35% 92%));
+  box-shadow: inset 0 0 0 1px hsl(30 55% 99% / .55), 0 16px 38px hsl(322 27% 31% / .08);
+}
+
+.canvas-garment {
+  animation: garment-breathe 6s ease-in-out infinite;
+}
+
+.profile-score-card {
+  background: linear-gradient(145deg, hsl(322 27% 31%), hsl(349 35% 43%));
+  box-shadow: 0 18px 38px hsl(322 27% 31% / .17);
+}
+
+.profile-trust,
+.guest-banner {
+  background: hsl(349 52% 92% / .72);
+  color: hsl(322 27% 31%);
+  border: 1px solid hsl(349 48% 68% / .2);
+}
+
+.upload-dropzone {
+  border-radius: 5px 18px 5px 18px;
+  background: linear-gradient(135deg, hsl(349 52% 97%), hsl(30 55% 98%));
+  transition: border-color .25s ease, background .25s ease, transform .25s ease;
+}
+
+.upload-dropzone:hover {
+  border-color: hsl(349 48% 68%);
+  background: hsl(349 52% 94%);
+  transform: translateY(-2px);
+}
+
+.form-field input,
+.form-field textarea,
+.form-field select,
+.message-form input {
+  border-radius: 5px 12px 5px 12px;
+  transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
+}
+
+.form-field input:focus,
+.form-field textarea:focus,
+.form-field select:focus,
+.message-form input:focus {
+  border-color: hsl(349 48% 68%);
+  box-shadow: 0 0 0 4px hsl(349 48% 68% / .12);
+  background: hsl(349 52% 99%);
+}
+
+@keyframes atelier-reveal {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes soft-breathe {
+  0%, 100% { transform: scale(1); opacity: .72; }
+  50% { transform: scale(1.06); opacity: 1; }
+}
+
+@keyframes note-float {
+  0%, 100% { transform: rotate(4deg) translateY(0); }
+  50% { transform: rotate(2deg) translateY(-7px); }
+}
+
+@keyframes garment-breathe {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-5px) scale(1.01); }
+}
+
+@media (max-width: 580px) {
+  .hero-thread {
+    inset: 0 -18% 0 0;
+    opacity: .62;
+  }
+
+  .composer:after {
+    display: none;
+  }
+
+  .surface:hover,
+  .designer-card:hover,
+  .match-card:hover,
+  .saved-card:hover,
+  .recommended-item:hover {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-copy,
+  .hero-art,
+  .landing-nav,
+  .floating-note,
+  .hero:before,
+  .canvas-garment {
+    animation: none !important;
+  }
+}
