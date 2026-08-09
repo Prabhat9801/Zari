@@ -109,6 +109,8 @@ export const mockDesignDetail: DesignDetail = {
   id: 'lavender-lehenga',
   title: 'Pastel Lavender Engagement Lehenga',
   versionNumber: 1,
+  // No renders in the demo set — the canvas falls back to its illustration.
+  images: [],
   attributes: [
     { label: 'Silhouette', value: 'Flared A-line' },
     { label: 'Fabric', value: 'Chanderi silk' },

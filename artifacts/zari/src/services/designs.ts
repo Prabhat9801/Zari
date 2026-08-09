@@ -73,6 +73,7 @@ function toDetail(design: ApiDesign): DesignDetail {
     id: design.id,
     title: design.title,
     versionNumber: version?.versionNumber ?? 1,
+    images: (version?.images ?? []).map((i) => ({ view: i.view, url: i.url })),
     attributes,
     costLines,
     estimateLabel: estimate ? formatRange(estimate.minTotal, estimate.maxTotal) : 'Not priced yet',

@@ -71,16 +71,29 @@ export interface CostLine {
   amount: string;
 }
 
+export interface DesignImage {
+  view: string;
+  url: string;
+}
+
 export interface DesignDetail {
   id: string;
   title: string;
   versionNumber: number;
+  images: DesignImage[];
   attributes: { label: string; value: string }[];
   costLines: CostLine[];
   estimateLabel: string;
   makeability: { score: string; complexity: string; leadTime: string };
   conversation: string[];
 }
+
+/**
+ * Picks the render for a tab. Only FRONT is generated today, so BACK and DETAIL
+ * fall back to it rather than dropping the customer onto an empty canvas.
+ */
+export const imageForView = (images: DesignImage[], view: string): string | null =>
+  images.find((i) => i.view.toLowerCase() === view.toLowerCase())?.url ?? images[0]?.url ?? null;
 
 /** Rupee formatting. Always "₹8,240" — never "Rs 8240". */
 export const formatINR = (paise: number): string =>
