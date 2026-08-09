@@ -264,8 +264,13 @@ Frontend ab API se connected hai. `VITE_API_URL` set ho aur API chalu ho to real
 | Field | Value |
 |---|---|
 | **Root Directory** | *(khaali — monorepo root)* |
-| Build Command | `corepack enable && pnpm install --no-frozen-lockfile && pnpm --filter @workspace/zari run build` |
+| Build Command | `pnpm --filter @workspace/zari run build` |
 | Publish Directory | `artifacts/zari/dist/public` |
+
+> Build command me `corepack enable` **mat** likhna — Render pe `/usr/bin/pnpm` read-only
+> filesystem pe hota hai aur corepack `EROFS` de kar crash karta hai. Zarurat bhi nahi:
+> Render build se pehle khud `pnpm install` chala deta hai, aur `packageManager` field
+> se sahi pnpm version uthata hai. Isliye build command me sirf build hi rehna chahiye.
 
 **Environment Variables:**
 
@@ -295,6 +300,8 @@ CORS_ORIGINS = https://zari-xxxx.onrender.com
 | Problem | Wajah | Fix |
 |---|---|---|
 | Build: "no Dockerfile found" | **Root Directory** khaali chhoda | `backend` ya `ai-service` set karo |
+| Static Site: `EROFS: read-only file system, unlink '/usr/bin/pnpm'` | Build command me `corepack enable` hai | Hata do — Render khud pnpm install kar deta hai |
+| Static Site: `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH` | Lockfile pnpm 9 se bana, Render pnpm 10 chalata hai (sirf 10 `pnpm-workspace.yaml` ke `overrides` padhta hai) | `packageManager` pin karo aur us version se lockfile regenerate karo |
 | Boot pe crash, "Invalid environment configuration" | Koi required env var missing hai | Logs me exact variable ka naam likha hoga |
 | `database: false` | Password me `@` / `#` encode nahi kiya | `%40` / `%23` karo |
 | Migrations fail, `P1001: Can't reach database server` | `DIRECT_URL` me **direct connection** (`db.<ref>.supabase.co`) daal diya — wo IPv6-only hai, Render IPv4 hai | **Session pooler** use karo: `aws-0-<region>.pooler.supabase.com:5432`, username `postgres.<ref>` |
