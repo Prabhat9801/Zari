@@ -54,6 +54,7 @@ git push origin main
 | `DATABASE_URL`, `DIRECT_URL` | Supabase, step 1 |
 | `CORS_ORIGINS` | Your deployed frontend URL(s), comma-separated, no trailing slash |
 | `AI_SERVICE_TOKEN` | Invent it: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
+| `AI_SERVICE_URL` | The deployed `zari-ai-service` URL, with `https://` and no trailing slash. Deploy that service first, copy its URL from its Render page, then set this and redeploy the API. |
 | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Settings → API |
 | `RAZORPAY_*` | Razorpay dashboard (see [backend/.env.example](backend/.env.example)) |
 

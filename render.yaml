@@ -55,12 +55,12 @@ services:
         sync: false
 
       # --- AI service --------------------------------------------------------
-      # Render resolves this to the deployed AI service's URL automatically.
+      # Paste the FULL URL of the deployed zari-ai-service, including https://
+      # and with no trailing slash, e.g. https://zari-ai-service-xxxx.onrender.com
+      # (fromService/hostport is not used here: it yields "host:port" with no
+      # scheme, which fails this service's URL validation at boot.)
       - key: AI_SERVICE_URL
-        fromService:
-          name: zari-ai-service
-          type: web
-          property: hostport
+        sync: false
       # Must match SERVICE_TOKEN on zari-ai-service. Set the SAME value in both.
       - key: AI_SERVICE_TOKEN
         sync: false
