@@ -12,6 +12,7 @@ import { session } from '@/lib/session';
 import { useAuthActions, useCurrentUser, useDesign, useDesigners, useDesignerProfile, useDesigns, useEditDesign, useGenerateDesign, useGuestBootstrap, useOrders } from '@/hooks/useZari';
 import { designsService } from '@/services/designs';
 import { imageForView } from '@/types';
+import { usePlatformConfig, useScoringPolicy } from '@/hooks/usePlatform';
 import { mockDesignerProfiles } from '@/data/mock';
 
 const queryClient = new QueryClient();
@@ -90,6 +91,11 @@ const SAMPLE_SUBSTITUTIONS = [
 
 function Landing() {
   const { data: designers } = useDesigners();
+  // The money terms and the score weights are server-owned. Stating them from
+  // hardcoded copy would mean the marketing page starts lying the moment ops
+  // changes one — on the exact subject the product promises never to hide.
+  const { data: config } = usePlatformConfig();
+  const { data: scoring } = useScoringPolicy();
   // Designer portfolios are public work, so the landing shows real pieces when
   // a studio has uploaded them and falls back to the illustration when not.
   return <main className="landing page">
@@ -162,11 +168,19 @@ function Landing() {
     <section className="section container trust-section" id="trust">
       <div className="section-heading"><div><div className="eyebrow">Where the money sits</div><h2>Your payment waits<br />until the work <em className="serif">passes.</em></h2></div><p>Trust is not a badge on a page. It is who is holding the money, and when it moves.</p></div>
       <div className="trust-strip">
-        <div className="trust-step"><div className="trust-figure">40%</div><strong>Held in escrow</strong><p>Paid when you accept a quote. Zari holds it — your designer does not have it yet.</p></div>
+        <div className="trust-step"><div className="trust-figure">{config.advancePercent}%</div><strong>Held in escrow</strong><p>Paid when you accept a quote. Zari holds it — your designer does not have it yet.</p></div>
         <div className="trust-step"><div className="trust-figure"><ShieldCheck size={26} /></div><strong>Zari quality check</strong><p>A person checks similarity, stitching, measurements, embroidery and finishing against your approved design.</p></div>
-        <div className="trust-step"><div className="trust-figure">60%</div><strong>Released after QC</strong><p>Only a pass moves the balance. There is deliberately no shortcut to pay early.</p></div>
-        <div className="trust-step"><div className="trust-figure">7</div><strong>Days to try it on</strong><p>If something needs adjusting, your first alteration is free.</p></div>
+        <div className="trust-step"><div className="trust-figure">{config.balancePercent}%</div><strong>Released after QC</strong><p>Only a pass moves the balance. There is deliberately no shortcut to pay early.</p></div>
+        <div className="trust-step"><div className="trust-figure">{config.fitWindowDays}</div><strong>Days to try it on</strong><p>If something needs adjusting, your first alteration is free.</p></div>
       </div>
+    </section>
+
+    <section className="section container score-section" id="quality">
+      <div className="section-heading"><div><div className="eyebrow">The Quality Score, published</div><h2>You can read the<br /><em className="serif">whole formula.</em></h2></div><p>{scoring.matchingNote} These are the live weights, served from the same endpoint the marketplace ranks with.</p></div>
+      <div className="score-grid">
+        {scoring.components.map((component) => <article className="score-item" key={component.key}><div className="score-weight"><strong>{Math.round((scoring.weights[component.key] ?? 0) * 100)}%</strong><span className="eyebrow">weight</span></div><div><strong>{component.label}</strong><p>{component.source}</p></div></article>)}
+      </div>
+      <p className="score-footnote"><ShieldCheck size={14} /> {scoring.note}</p>
     </section>
 
     <section className="section container quote-section" id="promise"><div><div className="quote-mark">“</div><div className="quote">I knew exactly how I wanted to feel. Zari helped me explain the rest.</div><div className="quote-by">— Anika, Hyderabad · Engagement set</div></div><div className="manifesto"><div className="eyebrow">The promise</div><h2>No black boxes between your idea and your invoice.</h2><p>Every estimate has a reason. Every substitution is yours to choose. Every maker is a person you can message before a rupee is committed.</p></div></section>

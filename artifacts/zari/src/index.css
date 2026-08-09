@@ -1223,3 +1223,16 @@ body {
   color: hsl(var(--muted-foreground));
   font-size: 13px;
 }
+
+/* The published Quality Score weights. Served from the same endpoint the
+   marketplace ranks with, so the page cannot drift from the real policy. */
+.score-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: hsl(var(--border)); border: 1px solid hsl(var(--border)); border-radius: 12px; overflow: hidden; }
+.score-item { background: hsl(var(--card)); padding: 24px 20px 22px; display: flex; flex-direction: column; gap: 16px; }
+.score-weight { display: flex; align-items: baseline; gap: 7px; }
+.score-weight strong { font: 400 38px var(--app-font-serif); letter-spacing: -.03em; font-variant-numeric: tabular-nums; color: hsl(var(--primary)); }
+.score-item > div:last-child strong { display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+.score-item p { margin: 0; font-size: 12px; line-height: 1.55; color: hsl(var(--muted-foreground)); }
+.score-footnote { display: flex; align-items: center; gap: 8px; margin: 20px 0 0; font-size: 12.5px; color: hsl(var(--muted-foreground)); }
+
+@media (max-width: 900px) { .score-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 580px) { .score-grid { grid-template-columns: 1fr; } }
