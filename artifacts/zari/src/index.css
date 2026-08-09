@@ -1185,3 +1185,30 @@ body {
 .canvas-garment .garment-art[data-tone="peach"]:before { background: linear-gradient(90deg, #d9a077, #f3d2b6 45%, #cf9670); }
 .canvas-garment .garment-art[data-tone="sage"]:before { background: linear-gradient(90deg, #9db99f, #cfdfcb 45%, #92ae96); }
 .canvas-garment .garment-art[data-tone="lilac"]:before { background: linear-gradient(90deg, #b09ec8, #ddd0ea 45%, #a693c0); }
+
+/* The estimate card in the hero. The promise the product makes is a real,
+   legible price — so the hero says one, rather than only showing a garment. */
+.hero-price {
+  position: absolute;
+  right: -6px;
+  top: 6px;
+  z-index: 2;
+  padding: 15px 18px;
+  border-radius: 11px;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  box-shadow: var(--shadow-md);
+  max-width: 215px;
+}
+.hero-price strong {
+  display: block;
+  margin: 7px 0 5px;
+  font: 400 27px var(--app-font-serif);
+  letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums;
+}
+.hero-price span { font-size: 11px; line-height: 1.45; color: hsl(var(--muted-foreground)); }
+
+@media (max-width: 900px) {
+  .hero-price { position: static; max-width: none; margin-top: 16px; }
+}
