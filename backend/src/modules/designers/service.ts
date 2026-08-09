@@ -34,12 +34,18 @@ export const designerService = {
     const existing = await prisma.designerProfile.findUnique({ where: { userId } });
     if (existing) throw conflict('You already have a studio profile.');
 
+    // Resolve the slug BEFORE opening the transaction. uniqueSlug probes the
+    // table on the global client, and with connection_limit=1 the open
+    // transaction is holding the only connection — the probe would wait on a
+    // pool it can never get, and the transaction would time out around it.
+    const slug = await uniqueSlug(input.studioName);
+
     return prisma.$transaction(async (tx) => {
       const profile = await tx.designerProfile.create({
         data: {
           userId,
           studioName: input.studioName,
-          slug: await uniqueSlug(input.studioName),
+          slug,
           city: input.city,
           state: input.state ?? null,
           bio: input.bio ?? null,

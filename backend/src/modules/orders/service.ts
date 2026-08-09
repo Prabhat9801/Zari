@@ -342,7 +342,7 @@ export const orderService = {
     const deliveredAt = new Date();
     const fitWindowEndsAt = new Date(deliveredAt.getTime() + env.FIT_WINDOW_DAYS * 24 * 60 * 60 * 1000);
 
-    return prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const updated = await tx.order.update({
         where: { id: orderId },
         data: { status: 'FIT_WINDOW', deliveredAt, fitWindowEndsAt },
@@ -358,9 +358,15 @@ export const orderService = {
         body: 'You have 7 days to try it on. Your first alteration is free.',
         linkUrl: `/app/orders/${orderId}`,
       });
-      await recomputeQualityScore(order.designerId, 'order.delivered').catch(() => undefined);
       return updated;
     });
+
+    // Recomputed AFTER the transaction closes. It reads and writes on the
+    // global client, so running it inside would block on a pool the open
+    // transaction is already holding. The score is derived data — recomputing
+    // it a moment later is fine; deadlocking the delivery is not.
+    await recomputeQualityScore(order.designerId, 'order.delivered').catch(() => undefined);
+    return result;
   },
 
   async submitFitFeedback(
@@ -373,8 +379,8 @@ export const orderService = {
     if (order.customerId !== customerId) throw forbidden('This order belongs to someone else.');
     if (!order.deliveredAt) throw badRequest('The garment has not been delivered yet.');
 
-    return prisma.$transaction(async (tx) => {
-      const feedback = await tx.fitFeedback.upsert({
+    const feedback = await prisma.$transaction(async (tx) => {
+      const saved = await tx.fitFeedback.upsert({
         where: { orderId },
         create: {
           orderId,
@@ -400,9 +406,12 @@ export const orderService = {
         });
       }
 
-      await recomputeQualityScore(order.designerId, 'fit.feedback').catch(() => undefined);
-      return feedback;
+      return saved;
     });
+
+    // Outside the transaction, for the same pool reason as markDelivered.
+    await recomputeQualityScore(order.designerId, 'fit.feedback').catch(() => undefined);
+    return feedback;
   },
 
   /** First alteration is always free — that is a promise, not a setting. */
