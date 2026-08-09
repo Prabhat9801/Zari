@@ -17,6 +17,8 @@ declare global {
     interface Request {
       user?: AuthUser;
       guestToken?: string;
+      /** A bearer token was supplied but is expired or invalid. */
+      staleToken?: boolean;
     }
   }
 }
@@ -66,20 +68,30 @@ export function attachIdentity(req: Request, _res: Response, next: NextFunction)
       designerId: payload.designerId ?? null,
     };
   } catch {
-    // An expired or malformed token is treated as "not signed in" rather than
-    // an error, so the client can silently refresh instead of showing a modal.
+    // Someone presented a token, so they are claiming an identity — do NOT
+    // silently demote them to a guest. That is how a signed-in customer whose
+    // 15-minute access token lapsed ended up refused by the guest quota with a
+    // 403, which the client never refreshes on. Flag it here; the guards below
+    // turn it into a 401, and the client refreshes and replays the request.
+    req.staleToken = true;
   }
   next();
 }
 
+/** 401 tells the client to refresh; anything else leaves it stuck. */
+const sessionExpired = () =>
+  unauthorized('Your session timed out. Signing you back in — please try again.');
+
 /** Requires a real, signed-in account. */
 export function requireAuth(req: Request, _res: Response, next: NextFunction): void {
+  if (req.staleToken) return next(sessionExpired());
   if (!req.user) return next(unauthorized());
   next();
 }
 
 export function requireRole(...roles: UserRole[]) {
   return (req: Request, _res: Response, next: NextFunction): void => {
+    if (req.staleToken) return next(sessionExpired());
     if (!req.user) return next(unauthorized());
     if (!roles.includes(req.user.role)) {
       return next(forbidden('This area is for a different kind of account.'));
@@ -90,6 +102,7 @@ export function requireRole(...roles: UserRole[]) {
 
 /** A designer route also needs a designer profile to exist. */
 export function requireDesigner(req: Request, _res: Response, next: NextFunction): void {
+  if (req.staleToken) return next(sessionExpired());
   if (!req.user) return next(unauthorized());
   if (req.user.role !== 'DESIGNER' && req.user.role !== 'ADMIN') {
     return next(forbidden('Create a designer studio to access this.'));
@@ -105,6 +118,10 @@ export function requireDesigner(req: Request, _res: Response, next: NextFunction
  * where a visitor gets one free generation before being asked to sign up.
  */
 export function requireIdentity(req: Request, _res: Response, next: NextFunction): void {
+  // Checked before the guest fallback on purpose: a signed-in customer with a
+  // lapsed token must refresh, not quietly become a guest and then be turned
+  // away by the guest quota.
+  if (req.staleToken) return next(sessionExpired());
   if (!req.user && !req.guestToken) {
     return next(unauthorized('Start a design to continue.'));
   }

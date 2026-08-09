@@ -130,8 +130,10 @@ function StudioStart() {
       onError: (error) => {
         // Hitting the guest quota is not a failure — it is the moment the
         // journey asks for an account. Say why, then take them there rather
-        // than leaving them on a dead button.
-        if (error instanceof ApiError && error.code === 'FORBIDDEN') {
+        // than leaving them on a dead button. Never send someone who is
+        // already signed in to signup: for them a FORBIDDEN is a real problem,
+        // not a prompt to make a second account.
+        if (error instanceof ApiError && error.code === 'FORBIDDEN' && !session.isSignedIn) {
           setToast({ message: error.message });
           window.setTimeout(() => setLocation('/signup'), 1800);
           return;
