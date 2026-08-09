@@ -64,7 +64,7 @@ Produce exactly {count} distinct concepts."""
 
     content: list[dict[str, Any]] = [*_image_blocks(payload.inspirationUrls), text_block(instruction)]
 
-    result, usage = structured_call(
+    result, usage = await structured_call(
         system=GENERATE_SYSTEM,
         user_content=content,
         schema=GENERATE_SCHEMA,
@@ -100,7 +100,7 @@ THE CUSTOMER ASKED FOR:
 
 Apply exactly this change and nothing else."""
 
-    result, usage = structured_call(
+    result, usage = await structured_call(
         system=EDIT_SYSTEM,
         user_content=instruction,
         schema=EDIT_SCHEMA,
@@ -142,7 +142,7 @@ CUSTOMER'S TARGET: {_rupees(payload.targetAmount)}
 Find the ways to reach that target. If it cannot be reached, say exactly which component makes \
 it impossible and what the realistic floor is."""
 
-    result, usage = structured_call(
+    result, usage = await structured_call(
         system=BUDGET_SYSTEM,
         user_content=instruction,
         schema=BUDGET_SCHEMA,
@@ -159,7 +159,7 @@ async def manufacturability(payload: ManufacturabilityRequest) -> dict[str, Any]
 
 Assess whether an independent Indian atelier can reliably make this."""
 
-    result, usage = structured_call(
+    result, usage = await structured_call(
         system=MANUFACTURABILITY_SYSTEM,
         user_content=instruction,
         schema=MANUFACTURABILITY_SCHEMA,

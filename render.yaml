@@ -64,8 +64,9 @@ services:
       # Must match SERVICE_TOKEN on zari-ai-service. Set the SAME value in both.
       - key: AI_SERVICE_TOKEN
         sync: false
+      # Above the AI service's own 180s, so it reports the real reason first.
       - key: AI_SERVICE_TIMEOUT_MS
-        value: "120000"
+        value: "240000"
 
       # --- Supabase Storage --------------------------------------------------
       - key: SUPABASE_URL

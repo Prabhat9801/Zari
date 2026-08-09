@@ -33,7 +33,7 @@ async def autotag(payload: AutoTagRequest) -> dict[str, Any]:
 
 Describe only what is visible in the photographs."""
 
-    result, usage = structured_call(
+    result, usage = await structured_call(
         system=AUTOTAG_SYSTEM,
         user_content=[*_image_blocks(payload.imageUrls), text_block(text)],
         schema=AUTOTAG_SCHEMA,
@@ -53,7 +53,7 @@ The attached photographs are of the finished garment. Compare them against the a
 and report on each of the five quality criteria. Say explicitly when a criterion cannot be \
 judged from a photograph."""
 
-    result, usage = structured_call(
+    result, usage = await structured_call(
         system=QC_SYSTEM,
         user_content=[*_image_blocks(payload.photoUrls), text_block(text)],
         schema=QC_SCHEMA,
@@ -82,7 +82,7 @@ ACTIVE ORDERS:
 
 What should they do today?"""
 
-    result, usage = structured_call(
+    result, usage = await structured_call(
         system=COPILOT_SYSTEM,
         user_content=text,
         schema=COPILOT_SCHEMA,

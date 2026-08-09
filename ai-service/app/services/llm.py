@@ -19,10 +19,17 @@ from app.schemas import Usage
 
 logger = logging.getLogger(__name__)
 
-_client: openai.OpenAI | None = None
+_client: openai.AsyncOpenAI | None = None
 
 
-def get_client() -> openai.OpenAI:
+def get_client() -> openai.AsyncOpenAI:
+    """The ASYNC client, deliberately.
+
+    These routes are `async def`, so a synchronous SDK call would block the
+    event loop for the entire 30-60s of a generation. With one uvicorn worker
+    that means the service answers nothing else in the meantime — not a second
+    request, not even /health, which Render then reads as a dead container.
+    """
     global _client
     if _client is None:
         settings = get_settings()
@@ -33,7 +40,7 @@ def get_client() -> openai.OpenAI:
         }
         if settings.openai_base_url:
             kwargs["base_url"] = settings.openai_base_url
-        _client = openai.OpenAI(**kwargs)
+        _client = openai.AsyncOpenAI(**kwargs)
     return _client
 
 
@@ -68,7 +75,7 @@ def image_block(url: str) -> dict[str, Any]:
     return {"type": "image_url", "image_url": {"url": url}}
 
 
-def structured_call(
+async def structured_call(
     *,
     system: str,
     user_content: Any,
@@ -106,7 +113,7 @@ def structured_call(
     }
 
     try:
-        response = client.chat.completions.create(**request)
+        response = await client.chat.completions.create(**request)
     except openai.RateLimitError as exc:
         logger.warning("OpenAI rate limit: %s", exc)
         raise HTTPException(

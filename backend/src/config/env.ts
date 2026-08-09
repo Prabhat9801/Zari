@@ -27,7 +27,11 @@ const schema = z.object({
   // --- AI service (the separate Python deployment) -----------------------
   AI_SERVICE_URL: z.string().url(),
   AI_SERVICE_TOKEN: z.string().min(16),
-  AI_SERVICE_TIMEOUT_MS: z.coerce.number().int().positive().default(120_000),
+  // Must stay ABOVE the AI service's own REQUEST_TIMEOUT_SECONDS, so that
+  // service reports a real reason instead of this side giving up first. With
+  // IMAGE_PROVIDER on, a generation is text (~30-60s) plus four images
+  // (~30-60s), so 120s was right on the edge.
+  AI_SERVICE_TIMEOUT_MS: z.coerce.number().int().positive().default(240_000),
 
   // --- Supabase Storage (images) -----------------------------------------
   SUPABASE_URL: z.string().url().optional(),
