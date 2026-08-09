@@ -2,6 +2,8 @@
   "name": "workspace",
   "version": "0.0.0",
   "license": "MIT",
+  "//packageManager": "Pinned because pnpm 10 reads `overrides` from pnpm-workspace.yaml and records them in the lockfile, while pnpm 9 ignores them entirely. Mixing the two produces ERR_PNPM_LOCKFILE_CONFIG_MISMATCH on any --frozen-lockfile install, which is what CI and Render do by default.",
+  "packageManager": "pnpm@10.34.5",
   "scripts": {
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
