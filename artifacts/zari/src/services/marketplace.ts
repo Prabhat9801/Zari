@@ -37,12 +37,21 @@ const leadTimeLabel = (d: ApiDesigner): string =>
     ? `${d.leadTimeMinDays}–${d.leadTimeMaxDays} days`
     : `${d.leadTimeMinDays ?? 14} days`;
 
+const firstPortfolioImage = (d: ApiDesigner): string | null => {
+  for (const item of d.portfolioItems ?? []) {
+    const url = item.coverUrl ?? item.imageUrls?.[0];
+    if (url) return url;
+  }
+  return null;
+};
+
 const toSummary = (d: ApiDesigner): DesignerSummary => ({
   id: d.id,
   slug: d.slug,
   name: d.studioName,
   city: d.city,
   score: String(d.qualityScore),
+  coverUrl: firstPortfolioImage(d),
   // A studio's floor price is a real number; when it has none, say so rather
   // than inventing one — the product never shows a fake price.
   bid: d.minOrderValue ? `From ${formatINR(d.minOrderValue)}` : 'Quote on request',

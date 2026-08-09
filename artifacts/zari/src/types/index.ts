@@ -29,6 +29,8 @@ export interface DesignerSummary {
   days: string;
   initials: string;
   tone: Tone;
+  /** First public portfolio piece, when the studio has uploaded one. */
+  coverUrl?: string | null;
 }
 
 export interface PortfolioPiece {

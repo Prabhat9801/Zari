@@ -971,3 +971,217 @@ body {
   border-radius: inherit;
   background: hsl(var(--muted));
 }
+
+/* ---------------------------------------------------------------------------
+   Landing page — the product story.
+   Appended for the same reason as the block above: this stylesheet has stacked
+   layers and later rules win, so these selectors are new names only and never
+   re-declare anything earlier.
+   --------------------------------------------------------------------------- */
+
+/* The five steps of the loop, under the hero. Numbered because the order is
+   the point — this is a sequence, not a feature list. */
+.journey {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 14px;
+  padding-bottom: 84px;
+}
+.journey-step { display: flex; flex-direction: column; }
+.journey-art {
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border-radius: 10px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--muted));
+  margin-bottom: 14px;
+}
+.journey-index {
+  font: 500 10px var(--app-font-mono);
+  letter-spacing: .14em;
+  color: hsl(var(--accent));
+  margin-bottom: 5px;
+}
+.journey-step strong { font: 400 21px var(--app-font-serif); letter-spacing: -.01em; }
+.journey-step span { font-size: 12px; color: hsl(var(--muted-foreground)); margin-top: 3px; }
+
+/* Pricing — the itemised estimate, which is the product's whole argument. */
+.price-grid { display: grid; grid-template-columns: 1.15fr .85fr; gap: 26px; align-items: start; }
+.price-card {
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  background: hsl(var(--card));
+  padding: 26px 28px 22px;
+  box-shadow: var(--shadow-sm);
+}
+.price-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid hsl(var(--border));
+}
+.price-tag {
+  font: 500 9px var(--app-font-mono);
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: hsl(var(--accent-foreground));
+  background: hsl(16 52% 62% / .18);
+  border-radius: 999px;
+  padding: 5px 10px;
+}
+.price-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 13px 0;
+  border-bottom: 1px solid hsl(var(--border) / .6);
+  font-size: 13px;
+}
+.price-line span:first-child { color: hsl(var(--muted-foreground)); }
+.price-line .mono { font: 12px var(--app-font-mono); font-variant-numeric: tabular-nums; }
+.price-total { display: flex; justify-content: space-between; align-items: end; gap: 20px; padding-top: 18px; }
+.price-total strong { display: block; font: 400 34px var(--app-font-serif); letter-spacing: -.02em; margin-top: 4px; }
+.price-total .muted { font-size: 11px; line-height: 1.5; max-width: 200px; text-align: right; }
+.price-notes { display: grid; gap: 1px; background: hsl(var(--border)); border: 1px solid hsl(var(--border)); border-radius: 12px; overflow: hidden; }
+.price-note { background: hsl(var(--card)); padding: 22px 24px; }
+.price-note strong { display: block; font: 400 20px var(--app-font-serif); margin-bottom: 7px; }
+.price-note p { margin: 0; font-size: 13px; line-height: 1.6; color: hsl(var(--muted-foreground)); }
+
+/* Budget optimizer — every trade named, priced and explained. */
+.optimizer-section { background: hsl(39 38% 93%); }
+.optimizer-grid { display: grid; grid-template-columns: .62fr 1.38fr; gap: 40px; align-items: start; }
+.optimizer-meta { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.optimizer-figure strong { display: block; font: 400 44px var(--app-font-serif); letter-spacing: -.03em; margin-top: 6px; }
+.optimizer-arrow { font-size: 26px; color: hsl(var(--accent)); }
+.optimizer-plan { border: 1px solid hsl(var(--border)); border-radius: 12px; background: hsl(var(--card)); padding: 24px 26px; }
+.optimizer-plan-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 16px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid hsl(var(--border));
+}
+.optimizer-plan-head strong { font: 400 24px var(--app-font-serif); }
+.substitution { padding: 16px 0; border-bottom: 1px solid hsl(var(--border) / .6); }
+.substitution-swap { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; font-size: 13px; }
+.substitution-swap span:first-child { color: hsl(var(--muted-foreground)); text-decoration: line-through; }
+.substitution-swap b { font-weight: 600; }
+.substitution-delta {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  color: hsl(var(--primary));
+  background: hsl(var(--secondary));
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 11px;
+}
+.substitution p { margin: 7px 0 0; font-size: 12px; line-height: 1.55; color: hsl(var(--muted-foreground)); max-width: 62ch; }
+.optimizer-result { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding-top: 18px; }
+.optimizer-result span { font: 10px var(--app-font-mono); letter-spacing: .14em; text-transform: uppercase; color: hsl(var(--muted-foreground)); }
+.optimizer-result strong { font: 400 34px var(--app-font-serif); letter-spacing: -.02em; }
+
+/* Escrow and quality control — trust stated as mechanics, not as a badge. */
+.trust-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: hsl(var(--border)); border: 1px solid hsl(var(--border)); border-radius: 12px; overflow: hidden; }
+.trust-step { background: hsl(var(--card)); padding: 28px 24px 26px; }
+.trust-figure {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  margin-bottom: 18px;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  font: 400 22px var(--app-font-serif);
+}
+.trust-step:nth-child(2) .trust-figure { background: hsl(var(--accent)); color: hsl(var(--accent-foreground)); }
+.trust-step strong { display: block; font: 400 21px var(--app-font-serif); margin-bottom: 8px; }
+.trust-step p { margin: 0; font-size: 12.5px; line-height: 1.6; color: hsl(var(--muted-foreground)); }
+
+/* Real portfolio work replaces the illustration when a studio has uploaded it. */
+.maker-art img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 20%; display: block; }
+.maker-art:has(img):after { display: none; }
+
+@media (max-width: 900px) {
+  .journey { grid-template-columns: repeat(2, 1fr); gap: 20px 14px; padding-bottom: 56px; }
+  .journey-step:last-child { grid-column: span 2; }
+  .journey-step:last-child .journey-art { aspect-ratio: 16 / 9; }
+  .price-grid, .optimizer-grid { grid-template-columns: 1fr; gap: 20px; }
+  .trust-strip { grid-template-columns: repeat(2, 1fr); }
+  .price-total { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .price-total .muted { text-align: left; max-width: none; }
+}
+
+@media (max-width: 580px) {
+  .journey { grid-template-columns: 1fr 1fr; }
+  .trust-strip { grid-template-columns: 1fr; }
+  .optimizer-meta { gap: 14px; }
+  .optimizer-figure strong { font-size: 34px; }
+  .substitution-delta { margin-left: 0; }
+}
+
+/* ---------------------------------------------------------------------------
+   Garment illustration tones.
+   The `tone` prop has been passed around since the first build but nothing ever
+   read it, so every placeholder rendered the same pink — four "different"
+   concepts looked like one repeated four times. Each tone now sets its own
+   ground, garment body and thread overlay.
+   --------------------------------------------------------------------------- */
+
+.garment-art[data-tone="peach"] {
+  background: radial-gradient(ellipse at 48% 30%, #fae3d2 0 12%, transparent 12.5%),
+              linear-gradient(120deg, #d9b295, #efdcc9);
+}
+.garment-art[data-tone="peach"]:before {
+  background: #e8b593;
+  box-shadow: inset 0 -40px 0 rgba(168, 108, 72, .28);
+}
+.garment-art[data-tone="peach"]:after {
+  background: repeating-linear-gradient(120deg, rgba(255, 246, 232, .78) 0 4px, transparent 4px 14px);
+}
+
+.garment-art[data-tone="sage"] {
+  background: radial-gradient(ellipse at 48% 30%, #dfe8dc 0 12%, transparent 12.5%),
+              linear-gradient(120deg, #adbfae, #dae3d5);
+}
+.garment-art[data-tone="sage"]:before {
+  background: #b3c9b4;
+  box-shadow: inset 0 -40px 0 rgba(88, 118, 96, .28);
+}
+.garment-art[data-tone="sage"]:after {
+  background: repeating-linear-gradient(120deg, rgba(246, 252, 242, .74) 0 4px, transparent 4px 14px);
+}
+
+.garment-art[data-tone="lilac"] {
+  background: radial-gradient(ellipse at 48% 30%, #e6dff0 0 12%, transparent 12.5%),
+              linear-gradient(120deg, #bdb2ce, #ded6e6);
+}
+.garment-art[data-tone="lilac"]:before {
+  background: #c6b6da;
+  box-shadow: inset 0 -40px 0 rgba(106, 88, 132, .28);
+}
+.garment-art[data-tone="lilac"]:after {
+  background: repeating-linear-gradient(120deg, rgba(250, 246, 255, .76) 0 4px, transparent 4px 14px);
+}
+
+/* The studio canvas overrides the base gradient, so its tones need repeating
+   at that specificity or the large view falls back to the default pink. */
+.canvas-garment .garment-art[data-tone="peach"] {
+  background: radial-gradient(ellipse at 50% 25%, #f7e0cd 0 10%, transparent 10.5%),
+              linear-gradient(120deg, #dcb79b, #f2e4d3);
+}
+.canvas-garment .garment-art[data-tone="sage"] {
+  background: radial-gradient(ellipse at 50% 25%, #dde9d9 0 10%, transparent 10.5%),
+              linear-gradient(120deg, #b0c3b1, #e0e9db);
+}
+.canvas-garment .garment-art[data-tone="lilac"] {
+  background: radial-gradient(ellipse at 50% 25%, #e7e0f1 0 10%, transparent 10.5%),
+              linear-gradient(120deg, #c0b5d0, #e4dcec);
+}
+.canvas-garment .garment-art[data-tone="peach"]:before { background: linear-gradient(90deg, #d9a077, #f3d2b6 45%, #cf9670); }
+.canvas-garment .garment-art[data-tone="sage"]:before { background: linear-gradient(90deg, #9db99f, #cfdfcb 45%, #92ae96); }
+.canvas-garment .garment-art[data-tone="lilac"]:before { background: linear-gradient(90deg, #b09ec8, #ddd0ea 45%, #a693c0); }

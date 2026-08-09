@@ -41,8 +41,34 @@ function GarmentArt({ tone = 'lavender', url, className = '' }: { tone?: string;
   return <div className={`garment-art ${className}`} data-tone={tone} aria-label="Illustrated custom garment visual" role="img" />;
 }
 
+/** The five steps of the product loop, shown under the hero. */
+const JOURNEY = [
+  { label: 'Inspiration', note: 'A sentence or a photo', tone: 'lilac' },
+  { label: 'Design', note: 'Manufacturable spec', tone: 'lavender' },
+  { label: 'Price', note: 'Itemised estimate', tone: 'peach' },
+  { label: 'Designer', note: 'Verified, matched', tone: 'sage' },
+  { label: 'Stitched', note: 'Checked, delivered', tone: 'lavender' },
+] as const;
+
+/** A real breakdown, in the shape the studio actually returns. */
+const SAMPLE_ESTIMATE = [
+  { label: 'Chanderi silk — 4.5m', amount: '₹3,150' },
+  { label: 'Cotton cambric lining', amount: '₹640' },
+  { label: 'Resham embroidery — medium', amount: '₹2,100' },
+  { label: 'Lehenga construction', amount: '₹1,900' },
+  { label: 'Trims and hand-finishing', amount: '₹610' },
+];
+
+const SAMPLE_SUBSTITUTIONS = [
+  { from: 'Chanderi silk', to: 'Silk-blend satin', delta: '−₹1,200', impact: 'Slightly less texture in daylight; the drape is very close.' },
+  { from: 'Gold zari border', to: 'Tonal thread border', delta: '−₹900', impact: 'Reads quieter up close, near-identical from across a room.' },
+  { from: 'Dense embroidery', to: 'Medium density', delta: '−₹1,200', impact: 'Open space between motifs; the layout is unchanged.' },
+];
+
 function Landing() {
   const { data: designers } = useDesigners();
+  // Designer portfolios are public work, so the landing shows real pieces when
+  // a studio has uploaded them and falls back to the illustration when not.
   return <main className="landing page">
     <div className="container">
       <nav className="landing-nav" aria-label="Main navigation">
@@ -65,14 +91,59 @@ function Landing() {
         </div>
       </section>
     </div>
+    <div className="container">
+      <section className="journey" aria-label="How a Zari order moves">
+        {JOURNEY.map((step, index) => <div className="journey-step" key={step.label}><div className="journey-art" data-tone={step.tone}><GarmentArt tone={step.tone} /></div><div className="journey-index">{String(index + 1).padStart(2, '0')}</div><strong>{step.label}</strong><span>{step.note}</span></div>)}
+      </section>
+    </div>
     <div className="marquee"><div className="marquee-track"><span>From inspiration to stitching</span><span className="dot">·</span><span>Transparent estimates</span><span className="dot">·</span><span>Verified human designers</span><span className="dot">·</span><span>Made in India</span><span className="dot">·</span></div></div>
     <section className="section container" id="how-it-works">
       <div className="section-heading"><div><div className="eyebrow">The Zari way</div><h2>Less guesswork.<br />More <em className="serif">intention.</em></h2></div><p>You bring the feeling. We bring the structure, craft, and people to make it real.</p></div>
       <div className="process-grid"><div className="process-card"><div className="process-number">01 / YOUR IDEA</div><h3>Start with a feeling, not a form.</h3><p className="muted">Describe the colour, occasion, or silhouette. Add an inspiration image when words are not enough.</p></div><div className="process-card"><div className="process-number">02 / YOUR DESIGN</div><h3>Make it manufacturable.</h3><p>See a clear design with fabric, construction notes, complexity, and a realistic estimate.</p></div><div className="process-card"><div className="process-number">03 / YOUR MAKER</div><h3>Meet the right human.</h3><p>Compare verified designers on quality, price, lead time, and the details that matter.</p></div></div>
     </section>
-    <section className="section market-section" id="designers">
-       <div className="container market-grid"><div className="market-copy"><div className="eyebrow">A calmer marketplace</div><h2>Good work has a name.</h2><p>Zari is not an image generator that leaves you alone. It is a considered bridge to an independent designer who can cut, source, stitch, and stand behind the work.</p><Link href="/marketplace" className="button button-coral" data-testid="button-meet-designers">Meet the designers <ArrowRight size={15} /></Link></div><div className="maker-stack">{designers.slice(0, 3).map((designer) => <Link href={`/designers/${designer.slug}`} className="maker-card" key={designer.id} data-testid={`link-landing-designer-${designer.id}`}><div className="maker-art" data-tone={designer.tone}></div><strong>{designer.name}</strong><div className="maker-meta"><span>{designer.city}</span><span>QS {designer.score}</span></div></Link>)}</div></div>
+    <section className="section container price-section" id="pricing">
+      <div className="section-heading"><div><div className="eyebrow">What it costs, and why</div><h2>Every rupee has<br />a <em className="serif">reason.</em></h2></div><p>No black box between your idea and your invoice. You see the fabric, the lining, the hours — before anyone cuts anything.</p></div>
+      <div className="price-grid">
+        <article className="price-card">
+          <div className="price-card-head"><div className="eyebrow">Pastel Lavender Lehenga</div><span className="price-tag">Estimate</span></div>
+          {SAMPLE_ESTIMATE.map((line) => <div className="price-line" key={line.label}><span>{line.label}</span><span className="mono">{line.amount}</span></div>)}
+          <div className="price-total"><div><div className="eyebrow">Working estimate</div><strong>₹7,400–₹8,400</strong></div><span className="muted">A designer confirms the final quote after measurements.</span></div>
+        </article>
+        <div className="price-notes">
+          <div className="price-note"><strong>An estimate is a range.</strong><p>A bid is one designer's offer. A final price is what you agree. Zari never blurs the three.</p></div>
+          <div className="price-note"><strong>Rates are not invented.</strong><p>Costs come from a maintained table of real Indian material and craft rates — not a guess dressed up as a number.</p></div>
+          <div className="price-note"><strong>Nothing changes silently.</strong><p>Every edit makes a new version. Your earlier direction is always still there.</p></div>
+        </div>
+      </div>
     </section>
+
+    <section className="section optimizer-section">
+      <div className="container">
+        <div className="section-heading"><div><div className="eyebrow">Budget optimizer · always free</div><h2>Make it fit your budget —<br />and <em className="serif">know what you traded.</em></h2></div><p>Not a slider that quietly makes things worse. Each change is named, priced, and explained.</p></div>
+        <div className="optimizer-grid">
+          <div className="optimizer-meta"><div className="optimizer-figure"><span className="eyebrow">Current</span><strong>₹8,240</strong></div><div className="optimizer-arrow" aria-hidden="true">→</div><div className="optimizer-figure"><span className="eyebrow">Your target</span><strong>₹5,000</strong></div></div>
+          <div className="optimizer-plan">
+            <div className="optimizer-plan-head"><strong>Best balance</strong><span className="score">94% visual similarity</span></div>
+            {SAMPLE_SUBSTITUTIONS.map((sub) => <div className="substitution" key={sub.from}><div className="substitution-swap"><span>{sub.from}</span><ArrowRight size={13} /><b>{sub.to}</b><span className="substitution-delta mono">{sub.delta}</span></div><p>{sub.impact}</p></div>)}
+            <div className="optimizer-result"><span>Resulting estimate</span><strong>₹4,940</strong></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section className="section market-section" id="designers">
+       <div className="container market-grid"><div className="market-copy"><div className="eyebrow">A calmer marketplace</div><h2>Good work has a name.</h2><p>Zari is not an image generator that leaves you alone. It is a considered bridge to an independent designer who can cut, source, stitch, and stand behind the work.</p><Link href="/marketplace" className="button button-coral" data-testid="button-meet-designers">Meet the designers <ArrowRight size={15} /></Link></div><div className="maker-stack">{designers.slice(0, 3).map((designer) => <Link href={`/designers/${designer.slug}`} className="maker-card" key={designer.id} data-testid={`link-landing-designer-${designer.id}`}><div className="maker-art" data-tone={designer.tone}>{designer.coverUrl ? <img src={designer.coverUrl} alt={`Work by ${designer.name}`} loading="lazy" /> : null}</div><strong>{designer.name}</strong><div className="maker-meta"><span>{designer.city}</span><span>QS {designer.score}</span></div></Link>)}</div></div>
+    </section>
+    <section className="section container trust-section" id="trust">
+      <div className="section-heading"><div><div className="eyebrow">Where the money sits</div><h2>Your payment waits<br />until the work <em className="serif">passes.</em></h2></div><p>Trust is not a badge on a page. It is who is holding the money, and when it moves.</p></div>
+      <div className="trust-strip">
+        <div className="trust-step"><div className="trust-figure">40%</div><strong>Held in escrow</strong><p>Paid when you accept a quote. Zari holds it — your designer does not have it yet.</p></div>
+        <div className="trust-step"><div className="trust-figure"><ShieldCheck size={26} /></div><strong>Zari quality check</strong><p>A person checks similarity, stitching, measurements, embroidery and finishing against your approved design.</p></div>
+        <div className="trust-step"><div className="trust-figure">60%</div><strong>Released after QC</strong><p>Only a pass moves the balance. There is deliberately no shortcut to pay early.</p></div>
+        <div className="trust-step"><div className="trust-figure">7</div><strong>Days to try it on</strong><p>If something needs adjusting, your first alteration is free.</p></div>
+      </div>
+    </section>
+
     <section className="section container quote-section" id="promise"><div><div className="quote-mark">“</div><div className="quote">I knew exactly how I wanted to feel. Zari helped me explain the rest.</div><div className="quote-by">— Anika, Hyderabad · Engagement set</div></div><div className="manifesto"><div className="eyebrow">The promise</div><h2>No black boxes between your idea and your invoice.</h2><p>Every estimate has a reason. Every substitution is yours to choose. Every maker is a person you can message before a rupee is committed.</p></div></section>
     <footer className="container footer"><span>© 2024 Zari Atelier Marketplace</span><span>Made slowly. Made in India.</span></footer>
   </main>;
