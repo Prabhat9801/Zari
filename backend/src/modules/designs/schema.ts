@@ -11,13 +11,30 @@ import { z } from 'zod';
  * genuinely unusable becomes null and the UI shows it as unconfirmed.
  */
 
-/** Trim, drop empties, and truncate instead of failing on an over-long value. */
+/**
+ * Cut at a word boundary rather than mid-word.
+ *
+ * These values are rendered straight into the attribute panel, and a spec that
+ * reads "tapered trousers and a nar" looks like the product is broken. The
+ * limits below are generous because the underlying Postgres columns are `text`
+ * and have none — they exist only to stop a runaway response, so truncation
+ * should be rare and invisible when it happens.
+ */
+function clamp(value: string, max: number): string {
+  if (value.length <= max) return value;
+  const cut = value.slice(0, max);
+  const lastBreak = Math.max(cut.lastIndexOf(' '), cut.lastIndexOf(';'), cut.lastIndexOf(','));
+  // Only honour the break if it isn't so early that we lose most of the value.
+  return (lastBreak > max * 0.6 ? cut.slice(0, lastBreak) : cut).replace(/[\s;,]+$/, '');
+}
+
+/** Trim, drop empties, and clamp instead of failing on an over-long value. */
 const text = (max: number) =>
   z.preprocess(
     (value) => {
       if (typeof value !== 'string') return null;
       const trimmed = value.trim();
-      return trimmed ? trimmed.slice(0, max) : null;
+      return trimmed ? clamp(trimmed, max) : null;
     },
     z.string().nullable(),
   );
@@ -27,7 +44,7 @@ const requiredText = (max: number, fallback: string) =>
   z.preprocess((value) => {
     if (typeof value !== 'string') return fallback;
     const trimmed = value.trim();
-    return trimmed ? trimmed.slice(0, max) : fallback;
+    return trimmed ? clamp(trimmed, max) : fallback;
   }, z.string());
 
 const stringList = (maxItems: number, maxLength: number) =>
@@ -54,19 +71,22 @@ const motifDensity = z.preprocess((value) => {
 }, z.enum(DENSITIES).nullable());
 
 export const designSpecSchema = z.object({
-  category: requiredText(60, 'Occasionwear'), // "Lehenga", "Sari set", "Anarkali"
-  silhouette: requiredText(60, 'Not specified'), // "Flared A-line"
-  fabric: requiredText(80, 'To be confirmed'), // "Chanderi silk"
-  lining: text(80),
-  neckline: text(60),
-  sleeves: text(60),
-  embroidery: text(80),
-  motifs: stringList(12, 40),
+  category: requiredText(120, 'Occasionwear'), // "Lehenga", "Menswear set"
+  // A real answer here reads "Angarkha-style overlap kurta with tapered
+  // trousers and a narrow dupatta" — describing construction, not one word.
+  silhouette: requiredText(240, 'Not specified'),
+  // Often lists several fabrics with their placement, separated by semicolons.
+  fabric: requiredText(320, 'To be confirmed'),
+  lining: text(240),
+  neckline: text(160),
+  sleeves: text(160),
+  embroidery: text(320),
+  motifs: stringList(12, 80),
   motifDensity,
-  palette: stringList(8, 40),
-  occasion: text(60),
-  closures: text(60),
-  hemline: text(60),
+  palette: stringList(8, 60),
+  occasion: text(120),
+  closures: text(160),
+  hemline: text(160),
   notes: text(2000),
 });
 
