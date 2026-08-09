@@ -127,7 +127,17 @@ function StudioStart() {
     if (!isApiConfigured) { window.setTimeout(() => setLocation('/app/studio/concepts'), 2600); return; }
     generate.mutate(brief.trim(), {
       onSuccess: () => setLocation('/app/studio/concepts'),
-      onError: (error) => setToast({ message: error instanceof ApiError ? error.message : "Zari couldn't finish that design. Nothing is lost — try again." }),
+      onError: (error) => {
+        // Hitting the guest quota is not a failure — it is the moment the
+        // journey asks for an account. Say why, then take them there rather
+        // than leaving them on a dead button.
+        if (error instanceof ApiError && error.code === 'FORBIDDEN') {
+          setToast({ message: error.message });
+          window.setTimeout(() => setLocation('/signup'), 1800);
+          return;
+        }
+        setToast({ message: error instanceof ApiError ? error.message : "Zari couldn't finish that design. Nothing is lost — try again." });
+      },
     });
   };
 

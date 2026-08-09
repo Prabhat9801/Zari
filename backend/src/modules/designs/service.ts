@@ -40,13 +40,24 @@ async function loadOwnedDesign(designId: string, identity: Identity) {
   return design;
 }
 
-/** Guest quota — a visitor gets a small number of free generations before signup. */
+/**
+ * Guest quota — a visitor gets a small number of free GENERATIONS before signup.
+ *
+ * Counts distinct briefs, not designs: one generation produces up to four
+ * concepts, so counting rows made GUEST_FREE_GENERATIONS meaningless below 4 —
+ * setting it to 2 still allowed only one generation.
+ */
 async function assertGuestQuota(identity: Identity): Promise<void> {
   if (identity.userId) return;
   if (!identity.guestToken) throw badRequest('Start a design session first.');
 
-  const used = await prisma.design.count({ where: { guestToken: identity.guestToken } });
-  if (used >= env.GUEST_FREE_GENERATIONS) {
+  const briefs = await prisma.design.findMany({
+    where: { guestToken: identity.guestToken },
+    select: { briefText: true },
+    distinct: ['briefText'],
+  });
+
+  if (briefs.length >= env.GUEST_FREE_GENERATIONS) {
     throw forbidden(
       'Create a free account to keep designing — your current design comes with you.',
     );
