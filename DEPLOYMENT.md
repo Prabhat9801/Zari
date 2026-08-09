@@ -308,6 +308,8 @@ CORS_ORIGINS = https://zari-xxxx.onrender.com
 | Migrations fail, "prepared statement" error | `DIRECT_URL` me transaction pooler (6543) daal diya | Session pooler port `5432` hona chahiye |
 | Har generation 502 deti hai | Token mismatch | `SERVICE_TOKEN` aur `AI_SERVICE_TOKEN` byte-for-byte same karo |
 | AI service 429 `insufficient_quota` deta hai | OpenAI credits khatam | platform.openai.com → Billing → credits add karo |
+| AI logs me `OpenAI connection error: Connection error.` | `OPENAI_BASE_URL` me quotes paste ho gayin — `""` truthy hai, to client ko toota hua base URL milta hai | Render se wo variable **delete** kar do (standard OpenAI ke liye chahiye hi nahi) |
+| Prisma `P1013: scheme is not recognized` | DB URL me quotes paste ho gayin | Value only paste karo, `"` ke bina |
 | `/bin/sh^M: bad interpreter` | Entrypoint CRLF me commit hua | `.gitattributes` isko rokta hai — repo se ho to `git add --renormalize .` |
 | Pehli request bahut slow | Free instance sleep se uth raha hai | Neeche wala note padho |
 

@@ -7,14 +7,32 @@ the required ones rather than failing on the first request.
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def _strip_quotes(cls, value: Any) -> Any:
+        """Strip surrounding quotes and whitespace from every string setting.
+
+        A .env file carries quotes and dotenv removes them, so people copy the
+        quoted form straight into a dashboard env var — where it stays literal.
+        `OPENAI_BASE_URL=""` then arrives as two quote characters, which is
+        truthy, and every API call dies with an opaque "Connection error"
+        pointing at nothing. Normalising here kills that whole class of bug.
+        """
+        if not isinstance(value, str):
+            return value
+        cleaned = value.strip()
+        if len(cleaned) >= 2 and cleaned[0] == cleaned[-1] and cleaned[0] in {'"', "'"}:
+            cleaned = cleaned[1:-1].strip()
+        return cleaned
 
     # --- Service -----------------------------------------------------------
     environment: Literal["development", "production"] = "development"
