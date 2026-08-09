@@ -1,8 +1,9 @@
 import type { Prisma, VersionSource } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { env } from '../../config/env.js';
-import { badRequest, forbidden, notFound, unmanufacturable } from '../../lib/errors.js';
+import { badRequest, forbidden, notFound, unmanufacturable, upstreamFailure } from '../../lib/errors.js';
 import { cursorArgs, toPage } from '../../lib/http.js';
+import { logger } from '../../lib/logger.js';
 import { aiClient, type AiImage, type DesignSpec } from '../../services/aiClient.js';
 import { loadActiveCostRules, persistEstimate } from '../../services/costing.js';
 import { uploadImageBase64 } from '../../services/storage.js';
@@ -195,46 +196,66 @@ export const designService = {
         result.concepts.map((concept) => storeImages(concept.images, storageOwner)),
       );
 
-      const designs = await prisma.$transaction(async (tx) => {
-        const out = [];
-        for (const [index, concept] of result.concepts.entries()) {
-          const spec = designSpecSchema.parse(concept.spec);
-          const images = conceptImages[index] ?? [];
+      // ONE TRANSACTION PER CONCEPT, not one around all four.
+      //
+      // Each concept is ~6 round trips, and against a pooled Supabase in another
+      // region that adds up fast — four of them together overran Prisma's 5s
+      // interactive-transaction default and threw P2028, losing the whole
+      // generation. The concepts are independent anyway: a customer is far
+      // better served by three saved directions than by none.
+      const designs: string[] = [];
 
-          const design = await tx.design.create({
-            data: {
-              ownerId: identity.userId ?? null,
-              guestToken: identity.userId ? null : identity.guestToken,
-              title: concept.name,
-              status: 'ACTIVE',
-              briefText: input.brief,
-              inspirationUrls: input.inspirationUrls,
-              targetBudget: input.targetBudget ?? null,
-              category: spec.category,
-              silhouette: spec.silhouette,
-              fabric: spec.fabric,
-              occasion: spec.occasion ?? null,
-              coverUrl: coverFrom(images),
+      for (const [index, concept] of result.concepts.entries()) {
+        const spec = designSpecSchema.parse(concept.spec);
+        const images = conceptImages[index] ?? [];
+
+        try {
+          const designId = await prisma.$transaction(
+            async (tx) => {
+              const design = await tx.design.create({
+                data: {
+                  ownerId: identity.userId ?? null,
+                  guestToken: identity.userId ? null : identity.guestToken,
+                  title: concept.name,
+                  status: 'ACTIVE',
+                  briefText: input.brief,
+                  inspirationUrls: input.inspirationUrls,
+                  targetBudget: input.targetBudget ?? null,
+                  category: spec.category,
+                  silhouette: spec.silhouette,
+                  fabric: spec.fabric,
+                  occasion: spec.occasion ?? null,
+                  coverUrl: coverFrom(images),
+                },
+              });
+
+              await createVersion(tx, {
+                designId: design.id,
+                parentVersionId: null,
+                source: 'GENERATION',
+                spec,
+                attributeConfidence: concept.attributeConfidence,
+                aiSummary: concept.summary,
+                manufacturability: concept.manufacturability,
+                isManufacturable: concept.manufacturability.isManufacturable,
+                images,
+                costEstimate: concept.costEstimate,
+              });
+
+              return design.id;
             },
-          });
+            { timeout: 20_000, maxWait: 10_000 },
+          );
 
-          await createVersion(tx, {
-            designId: design.id,
-            parentVersionId: null,
-            source: 'GENERATION',
-            spec,
-            attributeConfidence: concept.attributeConfidence,
-            aiSummary: concept.summary,
-            manufacturability: concept.manufacturability,
-            isManufacturable: concept.manufacturability.isManufacturable,
-            images,
-            costEstimate: concept.costEstimate,
-          });
-
-          out.push(design.id);
+          designs.push(designId);
+        } catch (err) {
+          logger.error({ err, concept: concept.name }, 'Failed to save a generated concept');
         }
-        return out;
-      });
+      }
+
+      if (designs.length === 0) {
+        throw upstreamFailure("Zari couldn't save those designs. Nothing is lost — try again.");
+      }
 
       await prisma.aiJob.update({
         where: { id: job.id },

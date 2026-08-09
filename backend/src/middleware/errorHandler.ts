@@ -85,6 +85,23 @@ export function errorHandler(
       });
       return;
     }
+    if (err.code === 'P2024' || err.code === 'P2028') {
+      // Pool exhausted, or an interactive transaction ran past its timeout.
+      // Both are load/latency problems, not the customer's fault, and both are
+      // worth retrying — so say so rather than reporting a flat failure.
+      logger.error({ code: err.code, path: req.path }, 'Database transaction timed out');
+      res.status(503).json({
+        error: {
+          code: 'DB_TIMEOUT',
+          message: 'Zari is taking longer than usual. Nothing is lost — please try again.',
+        },
+      });
+      return;
+    }
+
+    // Any other known Prisma code still reached the generic branch silently
+    // before; log the code so it is identifiable from the response alone.
+    logger.error({ code: err.code, meta: err.meta, path: req.path }, 'Unhandled Prisma error');
   }
 
   logger.error({ err, path: req.path, method: req.method }, 'Unhandled error');
