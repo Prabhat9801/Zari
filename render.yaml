@@ -129,23 +129,27 @@ services:
       - key: SERVICE_TOKEN
         sync: false
 
-      # console.anthropic.com -> Settings -> API Keys
-      - key: ANTHROPIC_API_KEY
+      # platform.openai.com -> Dashboard -> API keys (buy credits first)
+      - key: OPENAI_API_KEY
         sync: false
+      # Verify the id at platform.openai.com/docs/models before deploying.
       - key: MODEL_ID
-        value: claude-opus-5
-      - key: EFFORT
+        value: gpt-5
+      - key: REASONING_EFFORT
         value: high
-      - key: MAX_TOKENS
+      - key: MAX_OUTPUT_TOKENS
         value: "16000"
 
-      # Imagery is optional — the product works fully without it.
+      # Imagery is optional — the product works fully without it. Set to
+      # "openai" to enable GPT Image; it reuses OPENAI_API_KEY.
       - key: IMAGE_PROVIDER
         value: none
-      - key: REPLICATE_API_TOKEN
-        sync: false
-      - key: FAL_API_KEY
-        sync: false
+      - key: IMAGE_MODEL
+        value: gpt-image-2
+      - key: IMAGE_SIZE
+        value: 1024x1536
+      - key: IMAGE_QUALITY
+        value: medium
 
       - key: REQUEST_TIMEOUT_SECONDS
         value: "180"

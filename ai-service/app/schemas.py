@@ -1,11 +1,12 @@
 """Request/response models and the JSON Schemas used for structured outputs.
 
 The JSON Schemas below are hand-written rather than derived from the Pydantic
-models because the Claude structured-outputs feature supports a restricted
+models because OpenAI Structured Outputs in strict mode supports a restricted
 subset of JSON Schema: no numeric bounds (minimum/maximum), no string length
-constraints, no recursion, and every object must set additionalProperties:false
-with an explicit `required` list. Generating them from Pydantic would emit
-keywords the API rejects.
+constraints, no recursion, every object must set additionalProperties:false,
+and EVERY property must appear in `required` (optionality is expressed by
+allowing null in the type). Generating these from Pydantic would emit keywords
+the API rejects.
 """
 
 from __future__ import annotations
@@ -139,7 +140,9 @@ SPEC_SCHEMA = _obj(
         "sleeves": _NULLABLE_STR,
         "embroidery": _NULLABLE_STR,
         "motifs": _STR_LIST,
-        "motifDensity": {"type": ["string", "null"], "enum": ["NONE", "LIGHT", "MEDIUM", "DENSE", None]},
+        # Allowed values are stated in the prompt rather than as an enum: strict
+        # mode rejects an enum list that has to carry null alongside strings.
+        "motifDensity": _NULLABLE_STR,
         "palette": _STR_LIST,
         "occasion": _NULLABLE_STR,
         "closures": _NULLABLE_STR,

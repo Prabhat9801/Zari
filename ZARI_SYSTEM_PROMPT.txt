@@ -128,7 +128,7 @@ Three deployable units, each independent:
          │            ▼
          │   ┌──────────────────────────┐
          │   │  AI SERVICE              │  ai-service/ — Python 3.12 + FastAPI
-         │   │  Render (Docker)         │  Claude Opus 5. Stateless. No DB.
+         │   │  Render (Docker)         │  OpenAI GPT-5. Stateless. No DB.
          │   └──────────────────────────┘
          ▼
   ┌──────────────────────────┐
@@ -485,8 +485,9 @@ SECTION 8 — AI SERVICE
 --------------------------------------------------------------------------------
 
 Location: ai-service/
-Stack: Python 3.12, FastAPI, Anthropic SDK, httpx, Pydantic v2.
-Model: claude-opus-5, adaptive thinking, effort=high, structured outputs.
+Stack: Python 3.12, FastAPI, OpenAI SDK, httpx, Pydantic v2.
+Model: gpt-5, reasoning_effort=high, strict structured outputs.
+Images: gpt-image-2 (optional).
 Auth: X-Service-Token shared secret. Never exposed to browsers.
 
   app/
@@ -495,7 +496,7 @@ Auth: X-Service-Token shared secret. Never exposed to browsers.
     deps.py         constant-time service-token check
     schemas.py      wire models + hand-written JSON Schemas
     prompts.py      the system prompts — these encode the product rules
-    services/llm.py structured_call(): one place that calls Claude
+    services/llm.py structured_call(): one place that calls OpenAI
     services/imagegen.py  pluggable Replicate / fal / none
     routers/design.py     generate, edit, budget-optimize, manufacturability
     routers/studio.py     portfolio autotag, QC similarity, copilot digest
@@ -511,16 +512,18 @@ ENDPOINTS
   GET  /health, /health/ready
 
 WHY STRUCTURED OUTPUTS
-  Every call uses output_config.format with a JSON Schema, so the response is
-  guaranteed-shape JSON. No regex extraction, no retry-on-parse loop. The
+  Every call uses response_format.json_schema with strict:true, so the response
+  is guaranteed-shape JSON. No regex extraction, no retry-on-parse loop. The
   schemas are hand-written in schemas.py rather than generated from Pydantic,
-  because the feature supports a restricted JSON Schema subset (no numeric
-  bounds, no string lengths, no recursion, additionalProperties must be false).
+  because strict mode supports a restricted JSON Schema subset (no numeric
+  bounds, no string lengths, no recursion, additionalProperties must be false,
+  and EVERY property must appear in required — optionality is expressed by
+  allowing null in the type).
 
-WHY ADAPTIVE THINKING
+WHY A REASONING MODEL
   Garment construction, bill-of-materials costing, and substitution trade-offs
-  all need real multi-step reasoning. thinking={"type":"adaptive"} lets the
-  model decide how much per call; output_config.effort tunes the overall depth.
+  all need real multi-step reasoning. reasoning_effort tunes how hard the model
+  works per call: "high" for design work, "medium" to cut cost and latency.
 
 THE 422 CONTRACT
   When a design cannot be reliably stitched, the AI service returns HTTP 422

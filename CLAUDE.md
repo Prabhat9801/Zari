@@ -24,7 +24,7 @@ the deploy runbook.
 | Piece | Path | State |
 |---|---|---|
 | **Backend API** | [backend/](backend/) | **Complete.** Node 22 + Express 5 + Prisma. Typechecks clean. |
-| **AI service** | [ai-service/](ai-service/) | **Complete.** Python 3.12 + FastAPI + Claude Opus 5. Stateless. |
+| **AI service** | [ai-service/](ai-service/) | **Complete.** Python 3.12 + FastAPI + OpenAI. Stateless. |
 | **Database** | [backend/prisma/schema.prisma](backend/prisma/schema.prisma) | **Complete.** Validated. Seeded with real Indian cost rules. |
 | **Deploy** | [render.yaml](render.yaml), Dockerfiles | **Complete.** Migrations run on container start. |
 | **Frontend** | [artifacts/zari/](artifacts/zari/) | **Demo only.** Single-file, inline mock data, **not wired to the API**. |
@@ -78,7 +78,7 @@ backend/                    ← THE API. Owns all persistence, auth, money.
 ai-service/                 ← Python AI microservice. No DB, no user data.
   app/prompts.py            ← the product rules, encoded as system prompts
   app/schemas.py            ← hand-written JSON Schemas for structured outputs
-  app/services/llm.py       ← the one place that calls Claude
+  app/services/llm.py       ← the one place that calls OpenAI
   app/routers/              ← design.py, studio.py
 artifacts/zari/             ← frontend (Vite + React 19 + TS)
   src/App.tsx               ← everything: routes, pages, mock data (~250 lines)
@@ -118,10 +118,11 @@ render.yaml docker-compose.yml DEPLOYMENT.md ZARI_SYSTEM_PROMPT.txt
 7. **Guest mode is real.** `POST /api/auth/guest` issues an opaque token; designs created under it
    have `ownerId=null`. On signup the token is passed along and `claimGuestDesigns()` reassigns
    them — that is what makes "your guest design appears in your account" work.
-8. **Structured outputs, not prompt-and-parse.** Every Claude call uses `output_config.format` with
-   a JSON Schema, so responses are guaranteed-shape. The schemas are hand-written in
-   [schemas.py](ai-service/app/schemas.py) because the feature supports a restricted JSON Schema
-   subset (no numeric bounds, no string lengths, no recursion, `additionalProperties: false`).
+8. **Structured outputs, not prompt-and-parse.** Every model call uses OpenAI
+   `response_format.json_schema` with `strict: true`, so responses are guaranteed-shape. The
+   schemas are hand-written in [schemas.py](ai-service/app/schemas.py) because strict mode
+   supports a restricted JSON Schema subset (no numeric bounds, no string lengths, no recursion,
+   `additionalProperties: false`, and every property must be listed in `required`).
 9. **Frontend styling is hand-written semantic CSS**, not Tailwind utilities. Tailwind v4 is
    installed and the tokens are wired through `@theme inline`, but pages use classes like
    `.studio-layout` and `.match-card`. Match that; don't sprinkle utilities into `App.tsx`.
@@ -154,10 +155,12 @@ render.yaml docker-compose.yml DEPLOYMENT.md ZARI_SYSTEM_PROMPT.txt
 - **`AI_SERVICE_TOKEN` (backend) and `SERVICE_TOKEN` (ai-service) must match exactly.** A mismatch
   shows up as every generation failing with a 502 while `/api/health` still looks fine — check
   `/api/health/ready`, which reports both database and AI service.
-- **Anthropic credits are required.** With no balance every request fails with a 400 about
-  insufficient funds. Set a spend limit in the console before going live.
+- **OpenAI credits are required.** With no balance every request fails with a 429
+  `insufficient_quota`. A ChatGPT Plus subscription is not API access. Set a spend limit under
+  Settings → Limits before going live.
 - Image generation is optional (`IMAGE_PROVIDER=none` by default) and fails soft — the product works
-  end to end without imagery.
+  end to end without imagery. GPT Image returns base64, not a URL, so the AI service hands the
+  bytes back and the backend uploads them to Supabase Storage — storage ownership stays in one place.
 
 **Frontend**
 

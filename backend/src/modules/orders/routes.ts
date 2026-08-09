@@ -47,7 +47,7 @@ const reviewSchema = z.object({
 
 router.use(requireAuth);
 
-/** POST /api/orders �?" accept a bid. Creates the order in PENDING_PAYMENT. */
+/** POST /api/orders — accept a bid. Creates the order in PENDING_PAYMENT. */
 router.post(
   '/',
   validate(acceptBidSchema),

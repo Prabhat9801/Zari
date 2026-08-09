@@ -2,8 +2,8 @@
 
 A small, stateless FastAPI app that turns customer briefs into manufacturable
 garment specs, prices them against ops-managed cost rules, and finds ways to fit
-a budget. It holds no database and no user data — the Node backend owns all
-persistence and is the only caller.
+a budget. Runs on OpenAI. It holds no database and no user data — the Node
+backend owns all persistence and is the only caller.
 
 Deployed separately (Render) so the model workload can scale, fail, and be
 rolled back independently of the API.
@@ -43,7 +43,7 @@ app.include_router(studio.router)
 
 @app.get("/health", tags=["health"])
 async def health() -> dict[str, str]:
-    """Liveness. Deliberately does not call Anthropic — a provider blip must not
+    """Liveness. Deliberately does not call OpenAI — a provider blip must not
     make Render think the container is dead and restart it."""
     return {"status": "ok", "service": "zari-ai", "model": settings.model_id}
 
@@ -53,8 +53,9 @@ async def ready() -> dict[str, object]:
     return {
         "status": "ok",
         "model": settings.model_id,
-        "effort": settings.effort,
+        "reasoningEffort": settings.reasoning_effort,
         "imageProvider": settings.image_provider,
+        "imageModel": settings.image_model if settings.image_provider != "none" else None,
     }
 
 

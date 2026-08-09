@@ -24,27 +24,34 @@ class Settings(BaseSettings):
     # Shared secret with the Node backend. Must match AI_SERVICE_TOKEN there.
     service_token: str = Field(min_length=16)
 
-    # --- Anthropic ---------------------------------------------------------
-    anthropic_api_key: str = Field(min_length=10)
+    # --- OpenAI ------------------------------------------------------------
+    openai_api_key: str = Field(min_length=10)
+    # Optional: set when routing through Azure OpenAI or a proxy/gateway.
+    openai_base_url: str = ""
 
-    # Claude Opus 5 is the default: it handles the multi-constraint reasoning
-    # a manufacturable garment spec needs (construction logic + costing +
-    # substitution trade-offs) in a single structured pass.
-    model_id: str = "claude-opus-5"
-    # Effort tunes depth vs. cost. "high" is the sweet spot for design work;
-    # drop to "medium" if latency matters more than nuance.
-    effort: Literal["low", "medium", "high", "xhigh", "max"] = "high"
-    max_tokens: int = 16000
+    # The reasoning model that produces design specs, costing, and budget plans.
+    # Verify the exact id against platform.openai.com/docs/models before deploying.
+    model_id: str = "gpt-5"
+
+    # GPT-5 reasoning depth: minimal | low | medium | high.
+    # "high" suits multi-constraint design work; "medium" cuts cost and latency.
+    reasoning_effort: Literal["minimal", "low", "medium", "high"] = "high"
+    max_output_tokens: int = 16000
 
     # --- Image generation --------------------------------------------------
     # "none" disables imagery entirely and the service returns specs only —
     # the product still works, the canvas just falls back to illustration.
-    image_provider: Literal["none", "replicate", "fal"] = "none"
-    replicate_api_token: str = ""
-    replicate_model: str = "black-forest-labs/flux-1.1-pro"
-    fal_api_key: str = ""
-    fal_model: str = "fal-ai/flux/dev"
-    image_timeout_seconds: int = 90
+    image_provider: Literal["none", "openai"] = "none"
+    image_model: str = "gpt-image-2"
+    image_size: str = "1024x1536"  # portrait, close to the 3:4 the studio expects
+    image_quality: Literal["low", "medium", "high", "auto"] = "medium"
+    image_timeout_seconds: int = 120
+
+    # --- Cost tracking -----------------------------------------------------
+    # Paise per 1M tokens, used only to record spend on the AiJob row.
+    # Update these when pricing changes; they do not affect behaviour.
+    input_paise_per_mtok: int = Field(default=110_000)
+    output_paise_per_mtok: int = Field(default=880_000)
 
     # --- Behaviour ---------------------------------------------------------
     request_timeout_seconds: int = 180

@@ -17,13 +17,13 @@ from app.schemas import (
     QC_SCHEMA,
     QcSimilarityRequest,
 )
-from app.services.llm import structured_call
+from app.services.llm import image_block, structured_call, text_block
 
 router = APIRouter(tags=["studio"], dependencies=[Depends(verify_service_token)])
 
 
 def _image_blocks(urls: list[str], limit: int = 8) -> list[dict[str, Any]]:
-    return [{"type": "image", "source": {"type": "url", "url": url}} for url in urls[:limit]]
+    return [image_block(url) for url in urls[:limit]]
 
 
 @router.post("/v1/portfolio/autotag")
@@ -35,7 +35,7 @@ Describe only what is visible in the photographs."""
 
     result, usage = structured_call(
         system=AUTOTAG_SYSTEM,
-        user_content=[*_image_blocks(payload.imageUrls), {"type": "text", "text": text}],
+        user_content=[*_image_blocks(payload.imageUrls), text_block(text)],
         schema=AUTOTAG_SCHEMA,
         schema_name="portfolio_tags",
         effort="medium",
@@ -55,7 +55,7 @@ judged from a photograph."""
 
     result, usage = structured_call(
         system=QC_SYSTEM,
-        user_content=[*_image_blocks(payload.photoUrls), {"type": "text", "text": text}],
+        user_content=[*_image_blocks(payload.photoUrls), text_block(text)],
         schema=QC_SCHEMA,
         schema_name="qc_similarity",
     )

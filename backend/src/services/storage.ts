@@ -102,6 +102,58 @@ export async function createSignedUpload(
   }
 }
 
+/**
+ * Server-side upload. Used for AI-generated garment imagery, which arrives from
+ * the AI service as base64 — that service is stateless and holds no storage
+ * credentials, so the bytes land here and storage ownership stays in one place.
+ *
+ * Returns null instead of throwing: imagery is an enhancement, and losing a
+ * picture must never cost the customer their design.
+ */
+export async function uploadImageBase64(
+  folder: UploadFolder,
+  ownerId: string,
+  base64: string,
+  contentType = 'image/png',
+): Promise<string | null> {
+  if (!storageEnabled) return null;
+
+  const buffer = Buffer.from(base64, 'base64');
+  if (buffer.byteLength === 0 || buffer.byteLength > MAX_BYTES) {
+    logger.warn({ bytes: buffer.byteLength }, 'Skipping AI image upload: unusable size');
+    return null;
+  }
+
+  const path = buildPath(folder, ownerId, contentType);
+
+  try {
+    const res = await request(
+      `${env.SUPABASE_URL}/storage/v1/object/${env.SUPABASE_STORAGE_BUCKET}/${path}`,
+      {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          'content-type': contentType,
+          'cache-control': 'public, max-age=31536000, immutable',
+        },
+        body: buffer,
+      },
+    );
+
+    if (res.statusCode >= 400) {
+      const text = await res.body.text();
+      logger.error({ status: res.statusCode, text }, 'AI image upload failed');
+      return null;
+    }
+    await res.body.dump();
+
+    return publicUrlFor(path);
+  } catch (err) {
+    logger.error({ err }, 'AI image upload threw');
+    return null;
+  }
+}
+
 export async function deleteObject(path: string): Promise<void> {
   if (!storageEnabled) return;
   try {

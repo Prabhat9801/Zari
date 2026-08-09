@@ -3,8 +3,9 @@ import { prisma } from '../../lib/prisma.js';
 import { env } from '../../config/env.js';
 import { badRequest, forbidden, notFound, unmanufacturable } from '../../lib/errors.js';
 import { cursorArgs, toPage } from '../../lib/http.js';
-import { aiClient, type AiConcept, type DesignSpec } from '../../services/aiClient.js';
+import { aiClient, type AiImage, type DesignSpec } from '../../services/aiClient.js';
 import { loadActiveCostRules, persistEstimate } from '../../services/costing.js';
+import { uploadImageBase64 } from '../../services/storage.js';
 import { designSpecSchema } from './schema.js';
 import type {
   EditDesignInput,
@@ -51,8 +52,30 @@ async function assertGuestQuota(identity: Identity): Promise<void> {
   }
 }
 
-function coverFrom(concept: AiConcept): string | null {
-  return concept.imageUrls?.find((i) => i.view === 'FRONT')?.url ?? concept.imageUrls?.[0]?.url ?? null;
+/**
+ * GPT Image returns base64, not a hosted URL. Push each render to Supabase
+ * Storage and keep the public URL. Uploads that fail come back null and are
+ * dropped — imagery is an enhancement, and losing a picture must never cost
+ * the customer their design.
+ */
+async function storeImages(
+  images: AiImage[] | undefined,
+  ownerId: string,
+): Promise<{ view: string; url: string }[]> {
+  if (!images?.length) return [];
+
+  const stored = await Promise.all(
+    images.map(async (img) => {
+      const url = await uploadImageBase64('designs', ownerId, img.b64, img.contentType);
+      return url ? { view: img.view, url } : null;
+    }),
+  );
+
+  return stored.filter((i): i is { view: string; url: string } => i !== null);
+}
+
+function coverFrom(images: { view: string; url: string }[]): string | null {
+  return images.find((i) => i.view === 'FRONT')?.url ?? images[0]?.url ?? null;
 }
 
 /**
@@ -165,10 +188,18 @@ export const designService = {
         costRules,
       });
 
+      // Upload renders BEFORE opening the transaction — these are network round
+      // trips to Supabase and must not hold a database transaction open.
+      const storageOwner = identity.userId ?? identity.guestToken ?? 'anonymous';
+      const conceptImages = await Promise.all(
+        result.concepts.map((concept) => storeImages(concept.images, storageOwner)),
+      );
+
       const designs = await prisma.$transaction(async (tx) => {
         const out = [];
-        for (const concept of result.concepts) {
+        for (const [index, concept] of result.concepts.entries()) {
           const spec = designSpecSchema.parse(concept.spec);
+          const images = conceptImages[index] ?? [];
 
           const design = await tx.design.create({
             data: {
@@ -183,7 +214,7 @@ export const designService = {
               silhouette: spec.silhouette,
               fabric: spec.fabric,
               occasion: spec.occasion ?? null,
-              coverUrl: coverFrom(concept),
+              coverUrl: coverFrom(images),
             },
           });
 
@@ -196,7 +227,7 @@ export const designService = {
             aiSummary: concept.summary,
             manufacturability: concept.manufacturability,
             isManufacturable: concept.manufacturability.isManufacturable,
-            images: concept.imageUrls ?? [],
+            images,
             costEstimate: concept.costEstimate,
           });
 
@@ -348,6 +379,12 @@ export const designService = {
 
       const spec = designSpecSchema.parse(result.spec);
 
+      // Uploads happen outside the transaction — see storeImages().
+      const images = await storeImages(
+        result.images,
+        identity.userId ?? identity.guestToken ?? 'anonymous',
+      );
+
       const version = await prisma.$transaction((tx) =>
         createVersion(tx, {
           designId,
@@ -359,7 +396,7 @@ export const designService = {
           aiSummary: result.summary,
           manufacturability: result.manufacturability,
           isManufacturable: true,
-          images: result.imageUrls ?? [],
+          images,
           costEstimate: result.costEstimate,
         }),
       );

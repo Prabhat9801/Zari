@@ -63,7 +63,7 @@ const verificationSchema = z.object({
     .max(6),
 });
 
-/** POST /api/designers/profile �?" the "Build your studio" flow. */
+/** POST /api/designers/profile — the "Build your studio" flow. */
 router.post(
   '/profile',
   requireAuth,

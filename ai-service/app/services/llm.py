@@ -1,6 +1,6 @@
-"""Anthropic client wrapper.
+"""OpenAI client wrapper.
 
-One place that knows how to call Claude, force a JSON shape, handle refusals,
+One place that knows how to call the model, force a JSON shape, handle refusals,
 and report usage. Every router goes through `structured_call`.
 """
 
@@ -11,7 +11,7 @@ import logging
 import time
 from typing import Any
 
-import anthropic
+import openai
 from fastapi import HTTPException, status
 
 from app.config import get_settings
@@ -19,35 +19,36 @@ from app.schemas import Usage
 
 logger = logging.getLogger(__name__)
 
-_client: anthropic.Anthropic | None = None
+_client: openai.OpenAI | None = None
 
 
-def get_client() -> anthropic.Anthropic:
+def get_client() -> openai.OpenAI:
     global _client
     if _client is None:
         settings = get_settings()
-        _client = anthropic.Anthropic(
-            api_key=settings.anthropic_api_key,
-            timeout=settings.request_timeout_seconds,
-            max_retries=2,
-        )
+        kwargs: dict[str, Any] = {
+            "api_key": settings.openai_api_key,
+            "timeout": settings.request_timeout_seconds,
+            "max_retries": 2,
+        }
+        if settings.openai_base_url:
+            kwargs["base_url"] = settings.openai_base_url
+        _client = openai.OpenAI(**kwargs)
     return _client
 
 
-# Claude Opus 5 list pricing, in paise per token, so cost can be recorded on the
-# AiJob row alongside latency. $5 / $25 per million tokens at ~₹88/USD.
-_INPUT_PAISE_PER_TOKEN = 5 * 88 * 100 / 1_000_000
-_OUTPUT_PAISE_PER_TOKEN = 25 * 88 * 100 / 1_000_000
-
-
 def _usage_from(response: Any, model: str, started: float) -> Usage:
+    settings = get_settings()
     usage = getattr(response, "usage", None)
-    input_tokens = getattr(usage, "input_tokens", None)
-    output_tokens = getattr(usage, "output_tokens", None)
+    input_tokens = getattr(usage, "prompt_tokens", None)
+    output_tokens = getattr(usage, "completion_tokens", None)
 
     cost = None
     if input_tokens is not None and output_tokens is not None:
-        cost = round(input_tokens * _INPUT_PAISE_PER_TOKEN + output_tokens * _OUTPUT_PAISE_PER_TOKEN)
+        cost = round(
+            input_tokens * settings.input_paise_per_mtok / 1_000_000
+            + output_tokens * settings.output_paise_per_mtok / 1_000_000
+        )
 
     return Usage(
         model=model,
@@ -58,9 +59,13 @@ def _usage_from(response: Any, model: str, started: float) -> Usage:
     )
 
 
-def _extract_text(response: Any) -> str:
-    parts = [block.text for block in response.content if getattr(block, "type", None) == "text"]
-    return "".join(parts).strip()
+def text_block(text: str) -> dict[str, Any]:
+    return {"type": "text", "text": text}
+
+
+def image_block(url: str) -> dict[str, Any]:
+    """OpenAI chat vision input. Takes a public URL or a data: URI."""
+    return {"type": "image_url", "image_url": {"url": url}}
 
 
 def structured_call(
@@ -72,75 +77,78 @@ def structured_call(
     effort: str | None = None,
     max_tokens: int | None = None,
 ) -> tuple[dict[str, Any], Usage]:
-    """Calls Claude and returns a dict guaranteed to match `schema`.
+    """Calls the model and returns a dict guaranteed to match `schema`.
 
-    Uses structured outputs (`output_config.format`) so the response is valid
-    JSON of the right shape — no regex extraction, no retry-on-parse loop.
-    Adaptive thinking is on: garment construction, costing, and substitution
-    trade-offs all need real reasoning, and the model decides how much per call.
+    Uses OpenAI Structured Outputs (`response_format.json_schema` with
+    `strict: true`), so the response is valid JSON of the right shape — no
+    regex extraction, no retry-on-parse loop. The schemas in schemas.py are
+    written to satisfy strict mode: every object sets additionalProperties
+    false and lists every property in `required`.
     """
     settings = get_settings()
     client = get_client()
     started = time.monotonic()
 
-    messages = [
-        {
-            "role": "user",
-            "content": user_content if isinstance(user_content, list) else [{"type": "text", "text": user_content}],
-        }
-    ]
+    content = user_content if isinstance(user_content, list) else [text_block(user_content)]
+
+    request: dict[str, Any] = {
+        "model": settings.model_id,
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": content},
+        ],
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {"name": schema_name, "schema": schema, "strict": True},
+        },
+        "max_completion_tokens": max_tokens or settings.max_output_tokens,
+        "reasoning_effort": effort or settings.reasoning_effort,
+    }
 
     try:
-        response = client.messages.create(
-            model=settings.model_id,
-            max_tokens=max_tokens or settings.max_tokens,
-            system=system,
-            messages=messages,  # type: ignore[arg-type]
-            thinking={"type": "adaptive"},
-            output_config={
-                "effort": effort or settings.effort,
-                "format": {
-                    "type": "json_schema",
-                    "name": schema_name,
-                    "schema": schema,
-                },
-            },
-        )
-    except anthropic.RateLimitError as exc:
-        logger.warning("Anthropic rate limit: %s", exc)
+        response = client.chat.completions.create(**request)
+    except openai.RateLimitError as exc:
+        logger.warning("OpenAI rate limit: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail={"message": "Zari is busy right now. Try again in a few seconds."},
         ) from exc
-    except anthropic.APIConnectionError as exc:
-        logger.error("Anthropic connection error: %s", exc)
+    except openai.APIConnectionError as exc:
+        logger.error("OpenAI connection error: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail={"message": "Zari couldn't reach its design engine. Nothing is lost — try again."},
         ) from exc
-    except anthropic.APIStatusError as exc:
-        logger.error("Anthropic API error %s: %s", exc.status_code, exc.message)
+    except openai.APIStatusError as exc:
+        logger.error("OpenAI API error %s: %s", exc.status_code, exc.message)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail={"message": "Zari couldn't finish that design. Nothing is lost — try again."},
         ) from exc
 
-    # A safety classifier can decline the request; check before reading content.
-    if response.stop_reason == "refusal":
-        logger.warning("Model refused the request: %s", getattr(response, "stop_details", None))
+    choice = response.choices[0]
+    message = choice.message
+
+    # A safety refusal comes back on its own field, not as content.
+    refusal = getattr(message, "refusal", None)
+    if refusal:
+        logger.warning("Model refused the request: %s", refusal)
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={
                 "message": "Zari can't work on that request.",
-                "alternatives": ["Try describing the garment itself — fabric, occasion, and silhouette."],
+                "alternatives": [
+                    "Try describing the garment itself — fabric, occasion, and silhouette."
+                ],
             },
         )
 
-    if response.stop_reason == "max_tokens":
-        logger.warning("Response hit max_tokens; output may be truncated")
+    if choice.finish_reason == "length":
+        logger.warning("Response hit the token ceiling; output may be truncated")
 
-    text = _extract_text(response)
+    text = (message.content or "").strip()
     if not text:
+        logger.error("Model returned empty content (finish_reason=%s)", choice.finish_reason)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail={"message": "Zari couldn't finish that design. Nothing is lost — try again."},

@@ -54,6 +54,12 @@ export interface AiCostEstimate {
   basis?: Record<string, unknown>;
 }
 
+export interface AiImage {
+  view: string;
+  b64: string;
+  contentType: string;
+}
+
 export interface AiConcept {
   name: string;
   spec: DesignSpec;
@@ -62,7 +68,8 @@ export interface AiConcept {
   manufacturability: Manufacturability;
   costEstimate: AiCostEstimate;
   imagePrompt: string;
-  imageUrls?: { view: string; url: string }[];
+  /** Base64 PNG from GPT Image. The backend uploads these and keeps the URLs. */
+  images?: AiImage[];
 }
 
 export interface GenerateResult {
@@ -76,7 +83,7 @@ export interface EditResult {
   summary: string;
   manufacturability: Manufacturability;
   costEstimate: AiCostEstimate;
-  imageUrls?: { view: string; url: string }[];
+  images?: AiImage[];
   usage?: AiUsage;
 }
 

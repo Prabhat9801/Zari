@@ -21,7 +21,7 @@ const confirmSchema = z.object({
 
 /**
  * Razorpay webhook. Mounted with a raw body parser because the HMAC is computed
- * over the exact bytes �?" a re-serialised JSON body would never verify.
+ * over the exact bytes — a re-serialised JSON body would never verify.
  * This route is registered before express.json() in app.ts.
  */
 router.post(
@@ -44,7 +44,7 @@ router.post(
 
     await paymentService.handleWebhook(eventId, String(payload.event), payload);
 
-    // Always 200 once the signature is valid �?" a non-2xx makes Razorpay retry
+    // Always 200 once the signature is valid — a non-2xx makes Razorpay retry
     // an event we have already recorded.
     res.status(200).json({ received: true });
   }),

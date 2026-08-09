@@ -29,7 +29,7 @@ from app.schemas import (
     ManufacturabilityRequest,
 )
 from app.services.imagegen import generate_views
-from app.services.llm import structured_call
+from app.services.llm import image_block, structured_call, text_block
 
 logger = logging.getLogger(__name__)
 
@@ -42,9 +42,9 @@ def _rupees(paise: int | None) -> str:
     return f"₹{paise // 100:,}"
 
 
-def _image_blocks(urls: list[str]) -> list[dict[str, Any]]:
-    """Inspiration images ride along as URL image blocks so the model can see them."""
-    return [{"type": "image", "source": {"type": "url", "url": url}} for url in urls[:6]]
+def _image_blocks(urls: list[str], limit: int = 6) -> list[dict[str, Any]]:
+    """Inspiration images ride along so the model can read silhouette and fabric."""
+    return [image_block(url) for url in urls[:limit]]
 
 
 @router.post("/generate")
@@ -62,7 +62,7 @@ TARGET BUDGET: {_rupees(payload.targetBudget)}
 
 Produce exactly {count} distinct concepts."""
 
-    content: list[dict[str, Any]] = [*_image_blocks(payload.inspirationUrls), {"type": "text", "text": instruction}]
+    content: list[dict[str, Any]] = [*_image_blocks(payload.inspirationUrls), text_block(instruction)]
 
     result, usage = structured_call(
         system=GENERATE_SYSTEM,
@@ -74,12 +74,13 @@ Produce exactly {count} distinct concepts."""
     concepts = result.get("concepts", [])[:count]
 
     # Imagery is generated in parallel and is best-effort — a failure here must
-    # not cost the customer their concepts.
+    # not cost the customer their concepts. Base64 goes to the backend, which
+    # uploads it to storage and keeps the URL.
     image_sets = await asyncio.gather(
         *(generate_views(c.get("imagePrompt", ""), ("FRONT",)) for c in concepts)
     )
     for concept, images in zip(concepts, image_sets, strict=False):
-        concept["imageUrls"] = images
+        concept["images"] = images
 
     return {"concepts": concepts, "usage": usage.model_dump()}
 
@@ -122,7 +123,7 @@ Apply exactly this change and nothing else."""
             },
         )
 
-    result["imageUrls"] = await generate_views(result.get("imagePrompt", ""), ("FRONT",))
+    result["images"] = await generate_views(result.get("imagePrompt", ""), ("FRONT",))
     result["usage"] = usage.model_dump()
     return result
 

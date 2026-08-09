@@ -93,7 +93,7 @@ router.get(
 
 router.use(requireRole('OPS', 'ADMIN'));
 
-/** /ops/qc �?" the review queue. */
+/** /ops/qc — the review queue. */
 router.get(
   '/queue',
   validate(queueSchema, 'query'),
@@ -183,7 +183,7 @@ router.post(
       })),
     });
 
-    // Advisory only �?" a human reviewer still makes the call.
+    // Advisory only — a human reviewer still makes the call.
     let similarity: number | null = null;
     try {
       const result = await aiClient.qcSimilarity({
@@ -209,7 +209,7 @@ router.post(
 );
 
 /**
- * The decision. A pass is what releases the escrow balance to the designer �?"
+ * The decision. A pass is what releases the escrow balance to the designer —
  * this is the single place that money is unlocked.
  */
 router.post(

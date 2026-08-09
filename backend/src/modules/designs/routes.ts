@@ -19,7 +19,7 @@ const identityOf = (req: { user?: { id: string }; guestToken?: string }): Identi
   guestToken: req.guestToken ?? null,
 });
 
-/** POST /api/designs/generate �?" brief -> up to 4 manufacturable concepts. */
+/** POST /api/designs/generate — brief -> up to 4 manufacturable concepts. */
 router.post(
   '/generate',
   requireIdentity,
@@ -79,7 +79,7 @@ router.post(
   ),
 );
 
-/** POST /api/designs/:id/edit �?" conversational edit, always a new version. */
+/** POST /api/designs/:id/edit — conversational edit, always a new version. */
 router.post(
   '/:designId/edit',
   requireIdentity,

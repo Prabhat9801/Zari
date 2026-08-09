@@ -61,7 +61,7 @@ router.get(
 
 /**
  * The "How is this score calculated?" endpoint. Exposing the weights is the
- * point �?" an opaque score is not a trust feature.
+ * point — an opaque score is not a trust feature.
  */
 router.get('/scoring', (_req, res) =>
   ok(res, {

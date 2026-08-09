@@ -29,7 +29,7 @@ async function assertParticipant(conversationId: string, userId: string) {
   return participant;
 }
 
-/** Inbox �?" one row per conversation with the last message and unread count. */
+/** Inbox — one row per conversation with the last message and unread count. */
 router.get(
   '/',
   asyncHandler(async (req, res) => {

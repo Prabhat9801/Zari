@@ -38,7 +38,7 @@ const planInclude = {
  * PRODUCT RULE: this is never a slider. Every plan lists concrete substitutions
  * with a cost delta and a plain-language visual impact, so the customer knows
  * exactly what they are giving up. When the target is impossible we say so and
- * explain the binding constraint �?" never a generic error.
+ * explain the binding constraint — never a generic error.
  */
 router.post(
   '/:designId/budget/optimize',
@@ -186,7 +186,7 @@ router.patch(
 
 /**
  * Accepting a plan creates a NEW design version from the selected substitutions.
- * PRODUCT RULE: the design is never silently changed �?" this is an explicit step.
+ * PRODUCT RULE: the design is never silently changed — this is an explicit step.
  */
 router.post(
   '/:designId/budget/plans/:planId/apply',
@@ -210,7 +210,7 @@ router.post(
     const active = plan.substitutions.filter((s) => s.isSelected);
 
     // Apply the substitutions onto the spec. Only fields the optimizer can
-    // legitimately touch are mapped �?" a substitution can never rewrite the
+    // legitimately touch are mapped — a substitution can never rewrite the
     // silhouette or category, which would break visual identity.
     const nextSpec: Record<string, unknown> = { ...baseSpec };
     for (const sub of active) {
@@ -228,7 +228,7 @@ router.post(
         case 'FINISHING':
         case 'STITCHING':
         case 'OTHER':
-          nextSpec.notes = [nextSpec.notes, `${sub.fromValue} �?' ${sub.toValue}`]
+          nextSpec.notes = [nextSpec.notes, `${sub.fromValue} → ${sub.toValue}`]
             .filter(Boolean)
             .join('. ');
           break;
@@ -245,7 +245,7 @@ router.post(
         source: 'BUDGET_PLAN',
         spec: designSpecSchema.parse(nextSpec) as never,
         attributeConfidence: baseVersion.attributeConfidence as Record<string, string> | null,
-        editInstruction: `Fit to budget �?" ${plan.label}`,
+        editInstruction: `Fit to budget — ${plan.label}`,
         aiSummary: plan.rationale,
         manufacturability: baseVersion.manufacturability,
         isManufacturable: true,
