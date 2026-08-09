@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
+import { ZodError } from 'zod';
 import { AppError } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
 import { isProd } from '../config/env.js';
@@ -32,6 +33,25 @@ export function errorHandler(
         message: err.message,
         ...(err.details ? { details: err.details } : {}),
         ...(err.alternatives ? { alternatives: err.alternatives } : {}),
+      },
+    });
+    return;
+  }
+
+  // A ZodError reaching here means a schema rejected something we generated or
+  // stored — never raw user input, which validate() catches first. Log the
+  // detail so the shape mismatch is findable, and keep the user-facing message
+  // human.
+  if (err instanceof ZodError) {
+    logger.error(
+      { issues: err.issues, path: req.path },
+      'Schema validation failed on internal data',
+    );
+    res.status(502).json({
+      error: {
+        code: 'UPSTREAM_SHAPE',
+        message: "Zari couldn't read that result. Nothing is lost — please try again.",
+        ...(isProd ? {} : { debug: err.issues }),
       },
     });
     return;
