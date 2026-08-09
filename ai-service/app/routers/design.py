@@ -47,6 +47,32 @@ def _image_blocks(urls: list[str], limit: int = 6) -> list[dict[str, Any]]:
     return [image_block(url) for url in urls[:limit]]
 
 
+async def _render_within_budget(prompts: list[str]) -> list[list[dict[str, str]]]:
+    """Render one image per prompt, but never let imagery run the clock out.
+
+    The specs and prices are the thing the customer came for. Renders make them
+    nicer, so they get a fixed budget: whatever is not finished when it expires
+    is dropped, and the concepts go back regardless. Without this, four slow
+    images push the whole generation past the backend's patience and the
+    customer loses work the model had already finished.
+    """
+    settings = get_settings()
+    if settings.image_provider == "none" or not prompts:
+        return [[] for _ in prompts]
+
+    try:
+        return await asyncio.wait_for(
+            asyncio.gather(*(generate_views(p, ("FRONT",)) for p in prompts)),
+            timeout=settings.image_budget_seconds,
+        )
+    except TimeoutError:
+        logger.warning(
+            "Image budget of %ss expired; returning concepts without renders",
+            settings.image_budget_seconds,
+        )
+        return [[] for _ in prompts]
+
+
 @router.post("/generate")
 async def generate(payload: GenerateRequest) -> dict[str, Any]:
     settings = get_settings()
@@ -73,12 +99,8 @@ Produce exactly {count} distinct concepts."""
 
     concepts = result.get("concepts", [])[:count]
 
-    # Imagery is generated in parallel and is best-effort — a failure here must
-    # not cost the customer their concepts. Base64 goes to the backend, which
-    # uploads it to storage and keeps the URL.
-    image_sets = await asyncio.gather(
-        *(generate_views(c.get("imagePrompt", ""), ("FRONT",)) for c in concepts)
-    )
+    # Base64 goes to the backend, which uploads it to storage and keeps the URL.
+    image_sets = await _render_within_budget([c.get("imagePrompt", "") for c in concepts])
     for concept, images in zip(concepts, image_sets, strict=False):
         concept["images"] = images
 
@@ -123,7 +145,7 @@ Apply exactly this change and nothing else."""
             },
         )
 
-    result["images"] = await generate_views(result.get("imagePrompt", ""), ("FRONT",))
+    result["images"] = (await _render_within_budget([result.get("imagePrompt", "")]))[0]
     result["usage"] = usage.model_dump()
     return result
 

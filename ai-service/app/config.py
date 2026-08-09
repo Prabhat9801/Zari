@@ -64,6 +64,11 @@ class Settings(BaseSettings):
     image_size: str = "1024x1536"  # portrait, close to the 3:4 the studio expects
     image_quality: Literal["low", "medium", "high", "auto"] = "medium"
     image_timeout_seconds: int = 120
+    # Hard ceiling for ALL imagery in one request. Renders are an enhancement,
+    # so they get a fixed budget and are abandoned when it runs out — the specs
+    # and prices are what the customer actually needs, and they must never be
+    # lost because a picture was slow.
+    image_budget_seconds: int = 60
 
     # --- Cost tracking -----------------------------------------------------
     # Paise per 1M tokens, used only to record spend on the AiJob row.
