@@ -27,9 +27,10 @@ the deploy runbook.
 | **AI service** | [ai-service/](ai-service/) | **Complete.** Python 3.12 + FastAPI + OpenAI. Stateless. |
 | **Database** | [backend/prisma/schema.prisma](backend/prisma/schema.prisma) | **Complete.** Validated. Seeded with real Indian cost rules. |
 | **Deploy** | [render.yaml](render.yaml), Dockerfiles | **Complete.** Migrations run on container start. |
-| **Frontend** | [artifacts/zari/](artifacts/zari/) | **Demo only.** Single-file, inline mock data, **not wired to the API**. |
+| **Frontend** | [artifacts/zari/](artifacts/zari/) | **Wired to the API**, with the demo set as fallback. Typechecks and builds clean. |
 
-The frontend is the remaining work. Everything it needs on the server now exists.
+The frontend now reads live data when `VITE_API_URL` is set and the API responds, and falls back to
+the bundled demo set otherwise — see decision 11 below.
 
 ---
 
@@ -81,8 +82,13 @@ ai-service/                 ← Python AI microservice. No DB, no user data.
   app/services/llm.py       ← the one place that calls OpenAI
   app/routers/              ← design.py, studio.py
 artifacts/zari/             ← frontend (Vite + React 19 + TS)
-  src/App.tsx               ← everything: routes, pages, mock data (~250 lines)
-  src/index.css             ← the real design system (~935 lines hand-written CSS)
+  src/App.tsx               ← routes + all pages (still one file)
+  src/lib/                  ← config (VITE_API_URL), apiClient, session/token storage
+  src/services/             ← auth, designs, marketplace, orders — normalise API -> view types
+  src/hooks/                ← useApiData (live-or-demo), useZari (the per-screen hooks)
+  src/data/mock.ts          ← the demo set used as fallback
+  src/types/                ← view types + INR formatting
+  src/index.css             ← the real design system (~970 lines hand-written CSS)
 artifacts/api-server/       ← the old Replit Express stub. Superseded by backend/. Dead.
 lib/                        ← Replit's Orval/Drizzle scaffolding. Also superseded. Dead.
 render.yaml docker-compose.yml DEPLOYMENT.md ZARI_SYSTEM_PROMPT.txt
@@ -129,6 +135,11 @@ render.yaml docker-compose.yml DEPLOYMENT.md ZARI_SYSTEM_PROMPT.txt
 10. **The shipped palette is not the one in prompt.txt.** Spec asked for maroon `#8B3A3A` +
     Cormorant/Inter. Shipped: **deep teal** `hsl(173 36% 27%)`, **coral** `hsl(16 52% 62%)`, cream
     background, **Instrument Serif + DM Sans + DM Mono**. Shipped wins.
+11. **The frontend always has data.** [useApiData](artifacts/zari/src/hooks/useApiData.ts) returns
+    live API data when it can and the demo set from [data/mock.ts](artifacts/zari/src/data/mock.ts)
+    when it can't — unreachable API, unset `VITE_API_URL`, or an empty result. It also reports
+    `isLive`, and every screen renders a small "Sample data" chip when false. Showing demo content
+    *without* saying so would break the one promise the product is built on, so never drop that chip.
 
 ---
 
@@ -193,8 +204,8 @@ render.yaml docker-compose.yml DEPLOYMENT.md ZARI_SYSTEM_PROMPT.txt
 
 ## What's left
 
-1. **Wire the frontend to the API.** Extract `App.tsx` into `pages/ components/ services/ hooks/`,
-   build a typed client + TanStack Query hooks, replace the mock consts with real calls.
+1. **Split `App.tsx` into pages/components.** The data layer is done (`lib/`, `services/`, `hooks/`),
+   but every page still lives in one file. Extract them next.
 2. **Build the missing designer screens** — dashboard, bids, copilot, earnings, quality. Only
    `/designer/profile` exists in the UI today; every one of those endpoints is already live.
 3. **Build the ops console screens** — `/ops/qc`, `/ops/designers`, `/ops/disputes`,

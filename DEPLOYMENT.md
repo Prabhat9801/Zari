@@ -255,25 +255,38 @@ Designer payouts ke liye alag se **RazorpayX** activate karna padta hai. Tab tak
 
 ---
 
-## Step 8 — Frontend (abhi nahi)
+## Step 8 — Frontend
 
-Frontend abhi bhi mock data wala demo hai — **API se connected nahi hai**. Deploy kar sakte ho, par wo backend se baat nahi karega.
+Frontend ab API se connected hai. `VITE_API_URL` set ho aur API chalu ho to real data dikhega; nahi to bundled demo data pe fall back karega aur har section me chhota "Sample data" chip dikhega.
 
-Jab wire ho jaaye, tab Static Site banana:
+**Render → New → Static Site → wahi repo**
 
 | Field | Value |
 |---|---|
-| Root Directory | *(khaali — monorepo root)* |
-| Build Command | `pnpm install && pnpm --filter @workspace/zari run build` |
+| **Root Directory** | *(khaali — monorepo root)* |
+| Build Command | `corepack enable && pnpm install --no-frozen-lockfile && pnpm --filter @workspace/zari run build` |
 | Publish Directory | `artifacts/zari/dist/public` |
 
-Aur environment me `PORT=5173`, `BASE_PATH=/` dena padega (Vite config inke bina throw karta hai).
+**Environment Variables:**
 
-Frontend live hone ke baad `zari-api` ka `CORS_ORIGINS` `*` se badal ke asli URL kar dena:
 ```
-CORS_ORIGINS = https://zari.onrender.com
+VITE_API_URL = https://zari-api-xxxx.onrender.com
+PORT         = 22516
+BASE_PATH    = /
 ```
-(trailing slash nahi, comma se multiple URLs)
+
+`PORT` aur `BASE_PATH` zaroori hain — inke bina `vite.config.ts` throw karta hai. `VITE_API_URL` **build time** pe bake hota hai, to badalne ke baad rebuild karna padega.
+
+**SPA rewrite:** Render → Settings → Redirects/Rewrites → Add:
+- Source `/*` → Destination `/index.html` → Action **Rewrite**
+
+Iske bina `/app/designs` jaise deep link pe refresh karne se 404 aayega.
+
+**Aakhri step — CORS.** Frontend live hone ke baad `zari-api` ka `CORS_ORIGINS` `*` se badal ke asli URL kar dena:
+```
+CORS_ORIGINS = https://zari-xxxx.onrender.com
+```
+(trailing slash nahi; multiple URLs comma se)
 
 ---
 

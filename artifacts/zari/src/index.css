@@ -934,3 +934,40 @@ body {
     animation: none !important;
   }
 }
+/* ---------------------------------------------------------------------------
+   API-connected additions.
+   Appended deliberately: this stylesheet has two stacked layers and later
+   rules win, so anything here must not be re-declared above.
+   --------------------------------------------------------------------------- */
+
+/* Marks a section that is showing the bundled demo set because the server is
+   unreachable. Quiet, but never hidden — passing sample content off as real
+   would break the one promise the product is built on. */
+.demo-note {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  margin-left: 9px;
+  padding: 3px 8px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 999px;
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+  font: 500 9px/1 var(--app-font-mono);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: help;
+}
+
+/* A real generated garment render, in place of the CSS-gradient illustration.
+   Portrait crop, top-anchored so a neckline detail is never cut off. */
+.garment-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 15%;
+  display: block;
+  border-radius: inherit;
+  background: hsl(var(--muted));
+}
