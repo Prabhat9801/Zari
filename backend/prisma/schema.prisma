@@ -1,0 +1,1472 @@
+// ============================================================================
+// ZARI — Prisma schema (PostgreSQL / Supabase)
+// ----------------------------------------------------------------------------
+// MONEY CONVENTION: every money field is an Int in PAISE (1 rupee = 100 paise).
+//   ₹8,240 is stored as 824000. Never use Float for money.
+//   Formatting to "₹8,240" happens in the frontend / src/lib/money.ts.
+//
+// TIME CONVENTION: all timestamps are UTC (@db.Timestamptz).
+//
+// SUPABASE NOTE: DATABASE_URL must be the pooled connection (port 6543,
+//   ?pgbouncer=true&connection_limit=1) and DIRECT_URL the direct one
+//   (port 5432). Prisma migrations REQUIRE the direct URL.
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum UserRole {
+  CUSTOMER
+  DESIGNER
+  OPS
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum VerificationStatus {
+  UNSUBMITTED
+  PENDING
+  IN_REVIEW
+  VERIFIED
+  REJECTED
+}
+
+enum DesignStatus {
+  DRAFT // guest or unsaved concept
+  ACTIVE // saved, editable
+  QUOTED // sent to marketplace
+  ORDERED // an order exists
+  ARCHIVED
+}
+
+enum VersionSource {
+  GENERATION // first AI generation from a brief
+  EDIT // conversational edit
+  BUDGET_PLAN // produced by accepting a budget plan
+  DESIGNER_PROPOSAL // designer proposed a modification in a bid
+  MANUAL // customer edited attributes directly
+}
+
+enum CostComponent {
+  FABRIC
+  LINING
+  EMBROIDERY
+  STITCHING
+  TRIMS
+  FINISHING
+  OTHER
+}
+
+enum ConfidenceLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum BudgetRunStatus {
+  PENDING
+  READY
+  INFEASIBLE
+  FAILED
+}
+
+enum DesignRequestStatus {
+  OPEN // accepting bids
+  BIDDING_CLOSED
+  AWARDED
+  CANCELLED
+  EXPIRED
+}
+
+enum BidStatus {
+  SUBMITTED
+  SHORTLISTED
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+  EXPIRED
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT // awaiting the 40% advance
+  CONFIRMED // escrow funded, designer notified
+  IN_PRODUCTION
+  QC_PENDING
+  QC_FAILED
+  SHIPPED
+  DELIVERED
+  FIT_WINDOW // 7-day try-on window open
+  COMPLETED
+  CANCELLED
+  DISPUTED
+}
+
+enum MilestoneType {
+  DESIGN_CONFIRMED
+  MEASUREMENTS_RECEIVED
+  FABRIC_SOURCED
+  CUTTING
+  EMBROIDERY
+  STITCHING
+  QUALITY_CHECK
+  SHIPPED
+  DELIVERED
+  FIT_WINDOW_OPEN
+  ALTERATION
+  COMPLETED
+}
+
+enum MilestoneStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+  BLOCKED
+  SKIPPED
+}
+
+enum PaymentType {
+  ADVANCE // 40% at order confirmation
+  BALANCE // 60% released after QC
+  ALTERATION
+  REFUND
+}
+
+enum PaymentStatus {
+  CREATED
+  AUTHORIZED
+  CAPTURED
+  FAILED
+  REFUNDED
+}
+
+enum LedgerDirection {
+  CREDIT
+  DEBIT
+}
+
+enum LedgerState {
+  HELD // in escrow
+  RELEASED // paid out to designer
+  REFUNDED // returned to customer
+  FEE // Zari commission
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+}
+
+enum QcStatus {
+  NOT_STARTED
+  IN_REVIEW
+  PASSED
+  FAILED
+  PASSED_WITH_NOTES
+}
+
+enum FitRating {
+  PERFECT
+  SLIGHT_ALTERATION
+  NEEDS_ALTERATION
+  MAJOR_ISSUE
+}
+
+enum AlterationStatus {
+  REQUESTED
+  APPROVED
+  IN_PROGRESS
+  SHIPPED_BACK
+  COMPLETED
+  REJECTED
+}
+
+enum DisputeStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED_CUSTOMER
+  RESOLVED_DESIGNER
+  RESOLVED_SPLIT
+  WITHDRAWN
+}
+
+enum ConversationType {
+  DESIGN_REQUEST
+  ORDER
+  SUPPORT
+}
+
+enum AiJobType {
+  DESIGN_GENERATE
+  DESIGN_EDIT
+  BUDGET_OPTIMIZE
+  MANUFACTURABILITY
+  PORTFOLIO_AUTOTAG
+  QC_SIMILARITY
+  COPILOT_DIGEST
+}
+
+enum AiJobStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+enum NotificationType {
+  BID_RECEIVED
+  BID_ACCEPTED
+  ORDER_CONFIRMED
+  MILESTONE_UPDATED
+  QC_RESULT
+  MESSAGE_RECEIVED
+  PAYMENT_UPDATE
+  FIT_WINDOW_OPEN
+  DISPUTE_UPDATE
+  SYSTEM
+}
+
+enum SubscriptionPlan {
+  FREE
+  ZARI_PLUS
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  EXPIRED
+}
+
+// ============================================================================
+// IDENTITY & ACCOUNTS
+// ============================================================================
+
+model User {
+  id           String     @id @default(cuid())
+  phone        String?    @unique
+  email        String?    @unique
+  passwordHash String?
+  name         String?
+  avatarUrl    String?
+  role         UserRole   @default(CUSTOMER)
+  status       UserStatus @default(ACTIVE)
+
+  phoneVerifiedAt DateTime? @db.Timestamptz
+  emailVerifiedAt DateTime? @db.Timestamptz
+  lastLoginAt     DateTime? @db.Timestamptz
+
+  // Guest-mode support: a visitor gets a guestToken, designs are attached to it,
+  // and on signup those designs are claimed into the new account.
+  guestToken String?  @unique
+  isGuest    Boolean  @default(false)
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  customerProfile CustomerProfile?
+  designerProfile DesignerProfile?
+  refreshTokens   RefreshToken[]
+  otpChallenges   OtpChallenge[]
+  designs         Design[]
+  collections     Collection[]
+  designRequests  DesignRequest[]
+  customerOrders  Order[]           @relation("CustomerOrders")
+  reviewsWritten  Review[]          @relation("ReviewAuthor")
+  messages        Message[]
+  participants    ConversationParticipant[]
+  notifications   Notification[]
+  subscription    Subscription?
+  auditLogs       AuditLog[]
+  qcReviews       QualityCheck[]    @relation("QcReviewer")
+  disputesOpened  Dispute[]         @relation("DisputeOpener")
+  disputeMessages DisputeMessage[]
+
+  @@index([role, status])
+  @@index([createdAt])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  userAgent String?
+  ip        String?
+  expiresAt DateTime  @db.Timestamptz
+  revokedAt DateTime? @db.Timestamptz
+  createdAt DateTime  @default(now()) @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@map("refresh_tokens")
+}
+
+model OtpChallenge {
+  id          String    @id @default(cuid())
+  userId      String?
+  phone       String?
+  email       String?
+  codeHash    String
+  purpose     String // LOGIN | SIGNUP | VERIFY_PHONE | RESET
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(5)
+  consumedAt  DateTime? @db.Timestamptz
+  expiresAt   DateTime  @db.Timestamptz
+  createdAt   DateTime  @default(now()) @db.Timestamptz
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([phone, purpose])
+  @@index([email, purpose])
+  @@map("otp_challenges")
+}
+
+model CustomerProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  displayName String?
+  city        String?
+  bio         String?
+  // Free-form preferences: preferred occasions, palettes, sizes, etc.
+  preferences Json?
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  measurements Measurement[]
+  addresses    Address[]
+
+  @@map("customer_profiles")
+}
+
+model Measurement {
+  id         String @id @default(cuid())
+  profileId  String
+  label      String // "Anika — regular", "Mum"
+  unit       String @default("cm")
+  // { bust: 86, waist: 70, hips: 94, shoulder: 38, sleeveLength: 56, ... }
+  values     Json
+  notes      String?
+  isDefault  Boolean @default(false)
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  profile CustomerProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  orders  Order[]
+
+  @@index([profileId])
+  @@map("measurements")
+}
+
+model Address {
+  id         String  @id @default(cuid())
+  profileId  String
+  label      String  @default("Home")
+  line1      String
+  line2      String?
+  city       String
+  state      String
+  pincode    String
+  country    String  @default("India")
+  phone      String?
+  isDefault  Boolean @default(false)
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  profile CustomerProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  orders  Order[]
+
+  @@index([profileId])
+  @@map("addresses")
+}
+
+// ============================================================================
+// DESIGNER SIDE
+// ============================================================================
+
+model DesignerProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  studioName String
+  slug       String  @unique
+  city       String
+  state      String?
+  bio        String?
+  coverUrl   String?
+  logoUrl    String?
+
+  specialties  String[] // ["Lehenga", "Resham embroidery", ...]
+  crafts       String[] // ["gota-patti", "zardozi", ...]
+  fabricSkills String[]
+
+  leadTimeMinDays Int @default(12)
+  leadTimeMaxDays Int @default(21)
+  capacityPercent Int @default(0) // 0-100, how full the studio is
+  maxActiveOrders Int @default(5)
+
+  minOrderValue Int? // paise
+  serviceAreas  String[] // pincodes / cities they ship to
+
+  verificationStatus VerificationStatus @default(UNSUBMITTED)
+  verifiedAt         DateTime?          @db.Timestamptz
+
+  // Denormalised, recomputed by services/qualityScore.ts. Never write by hand.
+  qualityScore   Int   @default(0) // 0-100
+  ratingAvg      Float @default(0)
+  reviewsCount   Int   @default(0)
+  onTimeRate     Float @default(0) // 0-1
+  completedOrders Int  @default(0)
+  fitSuccessRate Float @default(0) // 0-1
+
+  isAcceptingWork Boolean @default(true)
+  isPublished     Boolean @default(false)
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  user               User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  portfolioItems     PortfolioItem[]
+  bids               Bid[]
+  matches            DesignerMatch[]
+  orders             Order[]               @relation("DesignerOrders")
+  reviews            Review[]              @relation("ReviewSubject")
+  payouts            Payout[]
+  payoutAccount      PayoutAccount?
+  verification       DesignerVerification?
+  qualityScoreLog    QualityScoreSnapshot[]
+
+  @@index([city, isPublished])
+  @@index([qualityScore])
+  @@index([verificationStatus])
+  @@map("designer_profiles")
+}
+
+model PortfolioItem {
+  id         String @id @default(cuid())
+  designerId String
+
+  title       String
+  description String?
+  imageUrls   String[]
+  coverUrl    String?
+
+  // AI auto-tags (editable by the designer). aiTags is what the model produced,
+  // tags is the final, designer-approved set used for matching.
+  aiTags Json?
+  tags   String[]
+
+  category   String? // "Lehenga", "Sari set", ...
+  occasion   String?
+  fabric     String?
+  embroidery String?
+  palette    String[]
+
+  sortOrder Int     @default(0)
+  isVisible Boolean @default(true)
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  designer DesignerProfile @relation(fields: [designerId], references: [id], onDelete: Cascade)
+
+  @@index([designerId, isVisible])
+  @@map("portfolio_items")
+}
+
+model DesignerVerification {
+  id         String @id @default(cuid())
+  designerId String @unique
+
+  status       VerificationStatus @default(PENDING)
+  documents    Json? // [{ type: "GST", url, uploadedAt }, ...]
+  reviewerId   String?
+  reviewNotes  String?
+  submittedAt  DateTime? @db.Timestamptz
+  reviewedAt   DateTime? @db.Timestamptz
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  designer DesignerProfile @relation(fields: [designerId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("designer_verifications")
+}
+
+model PayoutAccount {
+  id         String @id @default(cuid())
+  designerId String @unique
+
+  accountHolder String
+  // Store only the last 4 digits in plaintext; the full number lives with the
+  // payment provider (Razorpay fund account). accountRef is the provider token.
+  accountLast4  String
+  ifsc          String
+  bankName      String?
+  upiId         String?
+  providerRef   String? // razorpay fund_account_id / contact_id
+
+  isVerified Boolean @default(false)
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  designer DesignerProfile @relation(fields: [designerId], references: [id], onDelete: Cascade)
+
+  @@map("payout_accounts")
+}
+
+model QualityScoreSnapshot {
+  id         String @id @default(cuid())
+  designerId String
+
+  score Int
+  // { similarityMatch: 96, craftSkill: 94, pastSuccess: 92,
+  //   onTimeDelivery: 97, communication: 95, customerRating: 4.8 }
+  breakdown Json
+  reason    String? // what triggered the recompute
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  designer DesignerProfile @relation(fields: [designerId], references: [id], onDelete: Cascade)
+
+  @@index([designerId, createdAt])
+  @@map("quality_score_snapshots")
+}
+
+// ============================================================================
+// DESIGN STUDIO
+// ============================================================================
+
+model Design {
+  id      String @id @default(cuid())
+  ownerId String?
+
+  // Guest designs have no ownerId; they carry the guestToken until claimed.
+  guestToken String?
+
+  title  String
+  status DesignStatus @default(ACTIVE)
+
+  briefText       String? // the original prompt the customer typed
+  inspirationUrls String[]
+
+  currentVersionId String? @unique
+
+  // Denormalised from the current version so listing screens don't need joins.
+  category   String?
+  silhouette String?
+  fabric     String?
+  occasion   String?
+  coverUrl   String?
+
+  targetBudget Int? // paise, if the customer stated one
+
+  createdAt DateTime  @default(now()) @db.Timestamptz
+  updatedAt DateTime  @updatedAt @db.Timestamptz
+  claimedAt DateTime? @db.Timestamptz
+
+  owner          User?            @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  currentVersion DesignVersion?   @relation("CurrentVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
+  versions       DesignVersion[]  @relation("DesignVersions")
+  requests       DesignRequest[]
+  collections    CollectionItem[]
+  budgetRuns     BudgetRun[]
+  aiJobs         AiJob[]
+
+  @@index([ownerId, status])
+  @@index([guestToken])
+  @@index([updatedAt])
+  @@map("designs")
+}
+
+// Immutable. Every edit creates a new row; nothing is ever updated in place.
+model DesignVersion {
+  id       String @id @default(cuid())
+  designId String
+
+  versionNumber   Int
+  parentVersionId String? // null for v1; set for linear edits AND branches
+
+  source          VersionSource
+  editInstruction String? // what the customer asked for, verbatim
+  aiSummary       String? // "Full sleeves add ₹340 and sequins add ₹620."
+
+  // The full structured garment spec. Shape is owned by the AI service and
+  // validated with Zod in src/modules/designs/schema.ts (designSpecSchema).
+  // { category, silhouette, fabric, lining, neckline, sleeves, embroidery,
+  //   motifs[], motifDensity, palette[], occasion, closures, hemline, notes }
+  spec Json
+
+  // Per-attribute confidence so the UI can show "AI is unsure — [Confirm]".
+  // { fabric: "HIGH", neckline: "LOW", ... }
+  attributeConfidence Json?
+
+  // Manufacturability verdict from the AI service.
+  isManufacturable  Boolean @default(true)
+  manufacturability Json? // { score, complexity, leadTimeDays, blockers[], warnings[] }
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  design        Design         @relation("DesignVersions", fields: [designId], references: [id], onDelete: Cascade)
+  currentOf     Design?        @relation("CurrentVersion")
+  parentVersion DesignVersion? @relation("VersionTree", fields: [parentVersionId], references: [id], onDelete: SetNull)
+  childVersions DesignVersion[] @relation("VersionTree")
+
+  images        DesignImage[]
+  costEstimate  CostEstimate?
+  requests      DesignRequest[]
+  orders        Order[]
+  budgetRuns    BudgetRun[]
+  producedByPlan BudgetPlan?   @relation("PlanResultVersion")
+
+  @@unique([designId, versionNumber])
+  @@index([designId, createdAt])
+  @@map("design_versions")
+}
+
+model DesignImage {
+  id        String @id @default(cuid())
+  versionId String
+
+  view      String // FRONT | BACK | DETAIL
+  url       String
+  thumbUrl  String?
+  width     Int?
+  height    Int?
+  sortOrder Int    @default(0)
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  version DesignVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@index([versionId, view])
+  @@map("design_images")
+}
+
+// An estimate is always a RANGE — never present it as a final price.
+model CostEstimate {
+  id        String @id @default(cuid())
+  versionId String @unique
+
+  currency String @default("INR")
+  minTotal Int // paise
+  maxTotal Int // paise
+
+  confidence ConfidenceLevel @default(MEDIUM)
+  // Which cost rules / regional multipliers produced this estimate.
+  basis      Json?
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  version   DesignVersion  @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  lineItems CostLineItem[]
+
+  @@map("cost_estimates")
+}
+
+model CostLineItem {
+  id         String @id @default(cuid())
+  estimateId String
+
+  component CostComponent
+  label     String // "Chanderi silk — 4.5m"
+  minAmount Int // paise
+  maxAmount Int // paise
+  quantity  Float?
+  unit      String? // "m", "hours", "pcs"
+  notes     String?
+  sortOrder Int    @default(0)
+
+  estimate CostEstimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+
+  @@index([estimateId])
+  @@map("cost_line_items")
+}
+
+// Ops-managed pricing knowledge base. The AI service reads these to ground its
+// estimates instead of inventing numbers. Edited in /ops/cost-rules.
+model CostRule {
+  id String @id @default(cuid())
+
+  component CostComponent
+  key       String // "chanderi-silk", "sequin-dense", "stitching-lehenga"
+  label     String
+
+  minRate Int // paise per unit
+  maxRate Int // paise per unit
+  unit    String @default("m")
+
+  region     String? // null = applies everywhere
+  multiplier Float   @default(1.0)
+
+  isActive Boolean @default(true)
+  notes    String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  @@unique([component, key, region])
+  @@index([isActive])
+  @@map("cost_rules")
+}
+
+// ============================================================================
+// BUDGET OPTIMIZER
+// ============================================================================
+
+model BudgetRun {
+  id        String @id @default(cuid())
+  designId  String
+  versionId String
+
+  targetAmount  Int // paise
+  currentMin    Int
+  currentMax    Int
+  status        BudgetRunStatus @default(PENDING)
+
+  // When INFEASIBLE, this explains the binding constraint in plain language.
+  infeasibleReason String?
+  alternatives     Json? // suggested different constructions
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  design  Design        @relation(fields: [designId], references: [id], onDelete: Cascade)
+  version DesignVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  plans   BudgetPlan[]
+
+  @@index([designId, createdAt])
+  @@map("budget_runs")
+}
+
+model BudgetPlan {
+  id    String @id @default(cuid())
+  runId String
+
+  label            String // "Best balance", "Keep the craft"
+  similarityPercent Int // 0-100 visual similarity to the original
+  resultingMin     Int
+  resultingMax     Int
+  savings          Int // paise saved vs. the original max
+  rationale        String?
+  sortOrder        Int    @default(0)
+
+  // Set when the customer accepts this plan — points at the new version created.
+  resultVersionId String? @unique
+
+  run           BudgetRun           @relation(fields: [runId], references: [id], onDelete: Cascade)
+  substitutions BudgetSubstitution[]
+  resultVersion DesignVersion?      @relation("PlanResultVersion", fields: [resultVersionId], references: [id], onDelete: SetNull)
+
+  @@index([runId])
+  @@map("budget_plans")
+}
+
+model BudgetSubstitution {
+  id     String @id @default(cuid())
+  planId String
+
+  component    CostComponent
+  fromValue    String // "Chanderi silk"
+  toValue      String // "Silk-blend satin"
+  costDelta    Int // negative = saving, in paise
+  visualImpact String // "Slightly less texture in daylight; drape is very close."
+  similarityDelta Int @default(0) // how many similarity points this costs
+
+  // Customers can toggle individual substitutions on/off in the UI.
+  isSelected Boolean @default(true)
+  isOptional Boolean @default(true)
+  sortOrder  Int     @default(0)
+
+  plan BudgetPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@index([planId])
+  @@map("budget_substitutions")
+}
+
+// ============================================================================
+// COLLECTIONS
+// ============================================================================
+
+model Collection {
+  id      String @id @default(cuid())
+  ownerId String
+
+  name        String
+  description String?
+  coverUrl    String?
+  isPublic    Boolean @default(false)
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  owner User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  items CollectionItem[]
+
+  @@index([ownerId])
+  @@map("collections")
+}
+
+model CollectionItem {
+  id           String @id @default(cuid())
+  collectionId String
+  designId     String
+
+  sortOrder Int      @default(0)
+  addedAt   DateTime @default(now()) @db.Timestamptz
+
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  design     Design     @relation(fields: [designId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, designId])
+  @@map("collection_items")
+}
+
+// ============================================================================
+// MARKETPLACE — REQUESTS, MATCHING, BIDS
+// ============================================================================
+
+model DesignRequest {
+  id         String @id @default(cuid())
+  customerId String
+  designId   String
+  versionId  String
+
+  code   String              @unique // ZRQ-1048
+  status DesignRequestStatus @default(OPEN)
+
+  budgetMin  Int? // paise
+  budgetMax  Int?
+  neededBy   DateTime? @db.Timestamptz
+  city       String?
+  notes      String?
+
+  bidsCloseAt DateTime? @db.Timestamptz
+  awardedBidId String?  @unique
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  customer     User            @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  design       Design          @relation(fields: [designId], references: [id], onDelete: Cascade)
+  version      DesignVersion   @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  matches      DesignerMatch[]
+  bids         Bid[]           @relation("RequestBids")
+  awardedBid   Bid?            @relation("AwardedBid", fields: [awardedBidId], references: [id], onDelete: SetNull)
+  order        Order?
+  conversations Conversation[]
+
+  @@index([status, createdAt])
+  @@index([customerId])
+  @@map("design_requests")
+}
+
+// Precomputed match between a request and a designer. Ranking is NEVER
+// price-only — see src/services/matching.ts for the weighting.
+model DesignerMatch {
+  id         String @id @default(cuid())
+  requestId  String
+  designerId String
+
+  matchScore Int // 0-100 composite
+  // { similarityMatch, craftMatch, capacityFit, locationFit, priceFit }
+  breakdown  Json
+  rank       Int
+
+  notifiedAt DateTime? @db.Timestamptz
+  viewedAt   DateTime? @db.Timestamptz
+  dismissedAt DateTime? @db.Timestamptz
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  request  DesignRequest   @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  designer DesignerProfile @relation(fields: [designerId], references: [id], onDelete: Cascade)
+
+  @@unique([requestId, designerId])
+  @@index([designerId, createdAt])
+  @@map("designer_matches")
+}
+
+model Bid {
+  id         String @id @default(cuid())
+  requestId  String
+  designerId String
+
+  price        Int // paise — this is a QUOTE, not an estimate
+  leadTimeDays Int
+  message      String?
+  status       BidStatus @default(SUBMITTED)
+
+  // Designer may propose a change ("I'd use georgette for better drape").
+  proposedModification String?
+  proposedPriceDelta   Int? // paise
+
+  portfolioRefs String[] // PortfolioItem ids the designer is pointing at
+  validUntil    DateTime? @db.Timestamptz
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  request     DesignRequest  @relation("RequestBids", fields: [requestId], references: [id], onDelete: Cascade)
+  awardedFor  DesignRequest? @relation("AwardedBid")
+  designer    DesignerProfile @relation(fields: [designerId], references: [id], onDelete: Cascade)
+  order       Order?
+
+  @@unique([requestId, designerId])
+  @@index([designerId, status])
+  @@map("bids")
+}
+
+// ============================================================================
+// ORDERS, ESCROW, PRODUCTION
+// ============================================================================
+
+model Order {
+  id   String @id @default(cuid())
+  code String @unique // ZR-1048
+
+  customerId String
+  designerId String
+  versionId  String
+  requestId  String? @unique
+  bidId      String? @unique
+
+  status OrderStatus @default(PENDING_PAYMENT)
+
+  // FINAL agreed price. Distinct from CostEstimate (a range) and Bid (an offer).
+  finalPrice Int // paise
+  currency   String @default("INR")
+
+  advancePercent Int @default(40)
+  advanceAmount  Int // paise
+  balanceAmount  Int // paise
+  platformFee    Int @default(0) // paise, Zari commission
+
+  leadTimeDays   Int
+  promisedDate   DateTime? @db.Timestamptz
+  shippedAt      DateTime? @db.Timestamptz
+  deliveredAt    DateTime? @db.Timestamptz
+  completedAt    DateTime? @db.Timestamptz
+
+  fitWindowEndsAt   DateTime? @db.Timestamptz
+  freeAlterationUsed Boolean  @default(false)
+
+  measurementId String?
+  addressId     String?
+  // Frozen copy of the measurements at order time — the source rows can change.
+  measurementSnapshot Json?
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  customer    User            @relation("CustomerOrders", fields: [customerId], references: [id], onDelete: Restrict)
+  designer    DesignerProfile @relation("DesignerOrders", fields: [designerId], references: [id], onDelete: Restrict)
+  version     DesignVersion   @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  request     DesignRequest?  @relation(fields: [requestId], references: [id], onDelete: SetNull)
+  bid         Bid?            @relation(fields: [bidId], references: [id], onDelete: SetNull)
+  measurement Measurement?    @relation(fields: [measurementId], references: [id], onDelete: SetNull)
+  address     Address?        @relation(fields: [addressId], references: [id], onDelete: SetNull)
+
+  milestones    OrderMilestone[]
+  payments      Payment[]
+  ledgerEntries LedgerEntry[]
+  payouts       Payout[]
+  qualityChecks QualityCheck[]
+  fitFeedback   FitFeedback?
+  alterations   AlterationRequest[]
+  review        Review?
+  dispute       Dispute?
+  conversations Conversation[]
+
+  @@index([customerId, status])
+  @@index([designerId, status])
+  @@index([status, promisedDate])
+  @@map("orders")
+}
+
+model OrderMilestone {
+  id      String @id @default(cuid())
+  orderId String
+
+  type      MilestoneType
+  status    MilestoneStatus @default(PENDING)
+  title     String
+  note      String?
+  photoUrls String[]
+
+  occurredAt DateTime? @db.Timestamptz
+  dueAt      DateTime? @db.Timestamptz
+  sortOrder  Int       @default(0)
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, type])
+  @@index([orderId, sortOrder])
+  @@map("order_milestones")
+}
+
+model Payment {
+  id      String @id @default(cuid())
+  orderId String
+
+  type   PaymentType
+  status PaymentStatus @default(CREATED)
+  amount Int // paise
+
+  provider          String  @default("razorpay")
+  providerOrderId   String? @unique
+  providerPaymentId String? @unique
+  providerSignature String?
+  failureReason     String?
+
+  capturedAt DateTime? @db.Timestamptz
+  refundedAt DateTime? @db.Timestamptz
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, type])
+  @@index([status])
+  @@map("payments")
+}
+
+// Escrow ledger. Money is HELD on capture and only RELEASED after QC passes.
+model LedgerEntry {
+  id      String @id @default(cuid())
+  orderId String
+
+  direction LedgerDirection
+  state     LedgerState
+  amount    Int // paise
+  reason    String
+
+  paymentId String?
+  payoutId  String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, state])
+  @@map("ledger_entries")
+}
+
+model Payout {
+  id         String @id @default(cuid())
+  orderId    String
+  designerId String
+
+  amount Int // paise
+  status PayoutStatus @default(PENDING)
+
+  provider      String  @default("razorpay")
+  providerRef   String? @unique
+  utr           String?
+  failureReason String?
+
+  processedAt DateTime? @db.Timestamptz
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  order    Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  designer DesignerProfile @relation(fields: [designerId], references: [id], onDelete: Restrict)
+
+  @@index([designerId, status])
+  @@map("payouts")
+}
+
+// ============================================================================
+// QUALITY CONTROL & FIT
+// ============================================================================
+
+model QualityCheck {
+  id      String @id @default(cuid())
+  orderId String
+
+  status     QcStatus @default(NOT_STARTED)
+  reviewerId String?
+  round      Int      @default(1)
+
+  overallNote String?
+  // AI-assisted similarity between QC photos and the approved design version.
+  aiSimilarityScore Int?
+
+  startedAt   DateTime? @db.Timestamptz
+  completedAt DateTime? @db.Timestamptz
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  order    Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  reviewer User?              @relation("QcReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  items    QualityCheckItem[]
+  photos   QcPhoto[]
+
+  @@unique([orderId, round])
+  @@index([status])
+  @@map("quality_checks")
+}
+
+model QualityCheckItem {
+  id      String @id @default(cuid())
+  checkId String
+
+  criterion String // DESIGN_SIMILARITY | STITCHING | MEASUREMENTS | EMBROIDERY | FINISHING
+  passed    Boolean?
+  note      String?
+  sortOrder Int      @default(0)
+
+  check QualityCheck @relation(fields: [checkId], references: [id], onDelete: Cascade)
+
+  @@unique([checkId, criterion])
+  @@map("quality_check_items")
+}
+
+model QcPhoto {
+  id      String @id @default(cuid())
+  checkId String
+
+  url      String
+  caption  String?
+  view     String? // FRONT | BACK | DETAIL | TAG
+  sortOrder Int    @default(0)
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  check QualityCheck @relation(fields: [checkId], references: [id], onDelete: Cascade)
+
+  @@index([checkId])
+  @@map("qc_photos")
+}
+
+model FitFeedback {
+  id      String @id @default(cuid())
+  orderId String @unique
+
+  rating FitRating
+  note   String?
+  photoUrls String[]
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("fit_feedback")
+}
+
+model AlterationRequest {
+  id      String @id @default(cuid())
+  orderId String
+
+  status      AlterationStatus @default(REQUESTED)
+  description String
+  photoUrls   String[]
+  isFree      Boolean          @default(true) // first alteration is always free
+  chargeAmount Int             @default(0) // paise
+
+  approvedAt  DateTime? @db.Timestamptz
+  completedAt DateTime? @db.Timestamptz
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("alteration_requests")
+}
+
+model Review {
+  id         String @id @default(cuid())
+  orderId    String @unique
+  authorId   String
+  designerId String
+
+  rating  Int // 1-5
+  title   String?
+  body    String?
+  // { craft: 5, communication: 4, fit: 5, timeliness: 4 }
+  aspects Json?
+  photoUrls String[]
+
+  isPublished Boolean @default(true)
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  order    Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  author   User            @relation("ReviewAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  designer DesignerProfile @relation("ReviewSubject", fields: [designerId], references: [id], onDelete: Cascade)
+
+  @@index([designerId, isPublished])
+  @@map("reviews")
+}
+
+// ============================================================================
+// DISPUTES
+// ============================================================================
+
+model Dispute {
+  id      String @id @default(cuid())
+  orderId String @unique
+
+  openedById String
+  status     DisputeStatus @default(OPEN)
+  reason     String
+  description String?
+  evidenceUrls String[]
+
+  resolverId     String?
+  resolutionNote String?
+  refundAmount   Int? // paise
+  resolvedAt     DateTime? @db.Timestamptz
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  order    Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  openedBy User             @relation("DisputeOpener", fields: [openedById], references: [id], onDelete: Restrict)
+  messages DisputeMessage[]
+
+  @@index([status, createdAt])
+  @@map("disputes")
+}
+
+model DisputeMessage {
+  id        String @id @default(cuid())
+  disputeId String
+  authorId  String
+
+  body        String
+  attachments String[]
+  isInternal  Boolean @default(false) // ops-only notes
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  dispute Dispute @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+  author  User    @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([disputeId, createdAt])
+  @@map("dispute_messages")
+}
+
+// ============================================================================
+// MESSAGING & NOTIFICATIONS
+// ============================================================================
+
+model Conversation {
+  id   String           @id @default(cuid())
+  type ConversationType
+
+  orderId   String?
+  requestId String?
+
+  subject      String?
+  lastMessageAt DateTime? @db.Timestamptz
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  order        Order?                    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  request      DesignRequest?            @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  participants ConversationParticipant[]
+  messages     Message[]
+
+  @@index([orderId])
+  @@index([requestId])
+  @@index([lastMessageAt])
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id             String @id @default(cuid())
+  conversationId String
+  userId         String
+
+  lastReadAt DateTime? @db.Timestamptz
+  isMuted    Boolean   @default(false)
+
+  joinedAt DateTime @default(now()) @db.Timestamptz
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@map("conversation_participants")
+}
+
+model Message {
+  id             String @id @default(cuid())
+  conversationId String
+  senderId       String
+
+  body        String
+  attachments String[]
+  // System messages ("Milestone updated: Cutting") render differently.
+  isSystem    Boolean @default(false)
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("messages")
+}
+
+model Notification {
+  id     String @id @default(cuid())
+  userId String
+
+  type    NotificationType
+  title   String
+  body    String?
+  linkUrl String?
+  data    Json?
+
+  readAt DateTime? @db.Timestamptz
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+// ============================================================================
+// SUBSCRIPTIONS (Zari+)
+// ============================================================================
+
+model Subscription {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  plan   SubscriptionPlan   @default(FREE)
+  status SubscriptionStatus @default(ACTIVE)
+
+  currentPeriodStart DateTime? @db.Timestamptz
+  currentPeriodEnd   DateTime? @db.Timestamptz
+  cancelAtPeriodEnd  Boolean   @default(false)
+
+  providerRef String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+// ============================================================================
+// AI JOBS & PLATFORM PLUMBING
+// ============================================================================
+
+// Every call to the Python AI service is recorded here. The frontend polls this
+// row while a generation is running, which is what drives the staged loader
+// ("Understanding your inspiration" -> "Preparing your concepts").
+model AiJob {
+  id       String @id @default(cuid())
+  designId String?
+
+  type   AiJobType
+  status AiJobStatus @default(QUEUED)
+
+  // Progress stage index the UI renders; the AI service reports it back.
+  stage      String?
+  stageIndex Int     @default(0)
+  stageCount Int     @default(5)
+
+  input  Json
+  output Json?
+  error  String?
+
+  model         String?
+  inputTokens   Int?
+  outputTokens  Int?
+  costPaise     Int?
+  latencyMs     Int?
+
+  startedAt   DateTime? @db.Timestamptz
+  completedAt DateTime? @db.Timestamptz
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  design Design? @relation(fields: [designId], references: [id], onDelete: Cascade)
+
+  @@index([designId, createdAt])
+  @@index([status, type])
+  @@map("ai_jobs")
+}
+
+// Idempotency guard for payment provider webhooks. Insert-then-process:
+// a duplicate delivery hits the unique constraint and is skipped.
+model WebhookEvent {
+  id       String @id @default(cuid())
+  provider String
+  eventId  String
+  eventType String
+
+  payload     Json
+  processedAt DateTime? @db.Timestamptz
+  error       String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  @@unique([provider, eventId])
+  @@index([processedAt])
+  @@map("webhook_events")
+}
+
+model AuditLog {
+  id     String  @id @default(cuid())
+  actorId String?
+
+  action     String // "order.qc.passed"
+  entityType String
+  entityId   String
+  before     Json?
+  after      Json?
+  ip         String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([actorId, createdAt])
+  @@map("audit_logs")
+}

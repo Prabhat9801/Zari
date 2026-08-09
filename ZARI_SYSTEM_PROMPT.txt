@@ -1,0 +1,637 @@
+================================================================================
+ZARI — COMPLETE SYSTEM SPECIFICATION
+"From Inspiration to Stitching."
+================================================================================
+
+READ THIS FIRST (for any AI agent or engineer picking up this repository)
+
+This document describes the ENTIRE Zari system: the product idea, the user
+experience, the frontend, the backend, the database, the AI service, the money
+flow, and the deployment topology. It is the single source of truth. If code
+and this document disagree, the code is what ships — but the intent below is
+what the code is meant to serve.
+
+Two companion documents exist:
+  - prompt.txt   — the original FRONTEND build specification (UI/UX detail)
+  - CLAUDE.md    — the current state of the repository, honestly assessed
+  - DEPLOYMENT.md — step-by-step deploy runbook
+
+--------------------------------------------------------------------------------
+SECTION 0 — WHAT ZARI IS, IN ONE PARAGRAPH
+--------------------------------------------------------------------------------
+
+Zari is a premium Indian custom-fashion marketplace. A customer describes or
+uploads an outfit idea. Zari turns it into a MANUFACTURABLE design with a
+transparent, itemised cost estimate, lets them edit it conversationally, lets
+them tune it to a budget while seeing exactly what they are giving up, then
+matches them with verified independent Indian designers who bid on the work. The
+customer pays into escrow, watches production happen, Zari performs a human
+quality check before the designer is paid the balance, and the customer gets a
+7-day fit window with a free first alteration.
+
+Zari is NOT an "AI fashion app". AI translates an idea into a specification and
+a price. A real human designer makes the garment. That distinction is the whole
+product.
+
+--------------------------------------------------------------------------------
+SECTION 1 — THE CORE LOOP
+--------------------------------------------------------------------------------
+
+  Inspiration → Design → Edit → Price → Budget fit → Designer → Order
+             → Escrow → Production → QC → Delivery → Fit window
+
+At every screen the interface must answer three questions:
+  1. What happens next?
+  2. What am I paying for?
+  3. Can I trust this?
+
+CUSTOMER JOURNEY
+  1.  Upload an inspiration image or describe an outfit
+  2.  Generate manufacturable outfit concepts
+  3.  Edit the design conversationally
+  4.  See transparent itemised cost estimates
+  5.  Optimize the design to fit a target budget
+  6.  Request quotes from verified designers
+  7.  Compare designers using the Zari Quality Score
+  8.  Place an order through escrow
+  9.  Track production milestones
+  10. Receive human quality control
+  11. Receive the garment
+  12. Use a 7-day fit window and free first alteration
+
+DESIGNER JOURNEY
+  1. Create a verified studio profile
+  2. Upload a portfolio (auto-tagged, designer-editable)
+  3. Receive matched design requests
+  4. Submit bids
+  5. Manage orders
+  6. Track production
+  7. Use Zari Copilot
+  8. Manage earnings and capacity
+  9. Build their Quality Score
+
+OPS JOURNEY
+  1. Review the QC queue and pass/fail garments
+  2. Verify designer studios
+  3. Resolve disputes
+  4. Maintain the cost-rule knowledge base
+  5. Release and monitor payouts
+
+--------------------------------------------------------------------------------
+SECTION 2 — NON-NEGOTIABLE PRODUCT RULES
+--------------------------------------------------------------------------------
+
+These are enforced in code, not just in copy. Breaking one is a bug.
+
+ 1. Never show a fake final price when only an estimate exists.
+ 2. Always distinguish three different numbers:
+      ESTIMATE — a range, produced by the AI from cost rules  ("₹7,400–₹8,400")
+      BID      — a firm offer from one designer               ("₹6,400")
+      FINAL    — the agreed price on the order                ("₹6,400")
+ 3. Price is never the only marketplace ranking factor, and never the dominant
+    one. See the matching weights in Section 7.
+ 4. The Quality Score must be transparent. Its weights are exposed at
+    GET /api/marketplace/scoring. There is no paid placement input.
+ 5. The Budget Optimizer is always free.
+ 6. Guest users experience real value before signup. One free generation, and
+    the design follows them into their account when they sign up.
+ 7. Design edits preserve visual identity. An edit changes what was asked for
+    and nothing else.
+ 8. Every edit creates a new IMMUTABLE version. Nothing is ever updated in place.
+ 9. Never silently change the user's design. Applying a budget plan is an
+    explicit, separate action.
+10. Never silently accept an unmanufacturable instruction. Say what blocks it
+    and offer two concrete alternatives.
+11. Trust information is visible at the exact moment money changes hands.
+12. Errors are human-readable. Never "500 Internal Server Error". Instead:
+    "Zari couldn't finish that design. Nothing is lost — try again."
+13. Money is stored as INTEGER PAISE everywhere. Never a float.
+14. Currency is always formatted "₹8,240". Never "Rs 8240".
+
+--------------------------------------------------------------------------------
+SECTION 3 — SYSTEM TOPOLOGY
+--------------------------------------------------------------------------------
+
+Three deployable units, each independent:
+
+  ┌──────────────────────────┐
+  │  FRONTEND  (static SPA)  │  artifacts/zari — React 19 + Vite + TS
+  │  Vercel / Netlify / CDN  │
+  └────────────┬─────────────┘
+               │ HTTPS  (Bearer JWT, or X-Guest-Token for guests)
+               ▼
+  ┌──────────────────────────┐
+  │  BACKEND API             │  backend/ — Node 22 + Express 5 + Prisma
+  │  Render (Docker)         │  Owns ALL persistence, auth, money, orders
+  └──────┬────────────┬──────┘
+         │            │ X-Service-Token (shared secret)
+         │            ▼
+         │   ┌──────────────────────────┐
+         │   │  AI SERVICE              │  ai-service/ — Python 3.12 + FastAPI
+         │   │  Render (Docker)         │  Claude Opus 5. Stateless. No DB.
+         │   └──────────────────────────┘
+         ▼
+  ┌──────────────────────────┐
+  │  Supabase Postgres       │  + Supabase Storage (images)
+  └──────────────────────────┘
+         │
+         ▼
+  Razorpay (payments + RazorpayX payouts)
+  MSG91 / Twilio (OTP)
+
+WHY THE AI SERVICE IS SEPARATE
+  - It is the only part that is slow, expensive, and provider-dependent.
+  - It can be scaled, rate-limited, rolled back, and swapped independently.
+  - The backend never talks to an LLM provider directly. One integration point.
+  - It holds no user data and no database, so it is trivially replaceable.
+
+--------------------------------------------------------------------------------
+SECTION 4 — FRONTEND
+--------------------------------------------------------------------------------
+
+Stack: React 19, TypeScript, Vite, Tailwind v4, wouter (routing),
+TanStack Query, Framer Motion, three.js (hero animation), lucide-react.
+
+CURRENT STATE (important — see CLAUDE.md for the full audit)
+The frontend today is a single-file, high-fidelity DEMO: everything lives in
+artifacts/zari/src/App.tsx (~250 dense lines) with inline mock data and no
+persistence. The design system is ~935 lines of hand-written semantic CSS in
+src/index.css, NOT Tailwind utility classes. shadcn/ui is installed but almost
+entirely unused. There is no service layer and TanStack Query never queries.
+Connecting it to this backend is the next major piece of work.
+
+DESIGN SYSTEM AS SHIPPED (this supersedes the palette in prompt.txt)
+  Background        hsl(39 42% 96%)   warm cream
+  Foreground        hsl(177 23% 18%)  deep ink
+  Primary           hsl(173 36% 27%)  deep teal
+  Accent            hsl(16 52% 62%)   coral
+  Border            hsl(37 24% 84%)
+  Display font      Instrument Serif
+  UI font           DM Sans
+  Mono / eyebrow    DM Mono
+  Radius            0.85rem base; buttons are pill-shaped
+
+Feel: a luxury fashion atelier crossed with a modern design workspace and a
+trustworthy marketplace. Editorial, calm, precise, Indian, human. Avoid generic
+SaaS purple gradients, excessive glassmorphism, childish AI interfaces, fake AI
+hype, and "magic" language that hides pricing.
+
+ROUTES
+  PUBLIC     /  /how-it-works  /designers  /designers/:slug  /pricing  /trust
+  AUTH       /login  /signup
+  CUSTOMER   /app  /app/discover  /app/studio  /app/studio/:designId
+             /app/designs  /app/designs/:designId  /app/collections
+             /app/marketplace  /app/orders  /app/orders/:orderId
+             /app/messages  /app/profile  /app/zari-plus
+  DESIGNER   /designer  /designer/orders  /designer/orders/:orderId
+             /designer/bids  /designer/portfolio  /designer/copilot
+             /designer/earnings  /designer/quality  /designer/profile
+  OPS        /ops  /ops/qc  /ops/designers  /ops/disputes  /ops/cost-rules
+
+THE DESIGN STUDIO IS THE CENTREPIECE
+  Desktop layout — three columns:
+    LEFT    conversation with Zari ("Ask Zari to change anything...")
+    CENTER  garment canvas, tabs Front / Back / Detail, zoom / compare / fullscreen
+    RIGHT   design spec + itemised cost estimate + makeability + budget optimizer
+  Mobile gets its own composition, not a squeezed desktop layout.
+
+  The right panel must always visually distinguish ESTIMATE from FINAL QUOTE,
+  and show confidence. Attributes with LOW confidence render as
+  "AI is unsure  [Confirm]" — collaborative, not technical.
+
+LOADING STATES
+  AI generation is not a spinner. It shows stages, driven by polling the AiJob:
+    Understanding your inspiration
+    Building the garment
+    Checking manufacturability
+    Estimating materials
+    Preparing your concepts
+
+EMPTY STATES
+  Never "No data found." Always a next action:
+    "My Designs" → "Your next outfit starts here." → [ Create a design ]
+
+--------------------------------------------------------------------------------
+SECTION 5 — BACKEND
+--------------------------------------------------------------------------------
+
+Location: backend/
+Stack: Node 22, Express 5, TypeScript (ESM, NodeNext), Prisma 6, Zod, Pino,
+argon2, jsonwebtoken, Razorpay SDK, undici.
+
+LAYOUT
+  src/
+    index.ts              boot, graceful shutdown, DB fail-fast
+    app.ts                middleware chain (webhook mounted BEFORE json parser)
+    routes.ts             mounts every module, health, public config
+    config/env.ts         Zod-validated env; process exits if invalid
+    lib/                  prisma, logger, errors, http, money, ids
+    middleware/           auth, validate, errorHandler, rateLimit
+    services/             aiClient, costing, matching, qualityScore,
+                          storage, payments, otp, notifications
+    modules/              auth, users, designs, budget, marketplace, orders,
+                          payments, qc, designers, messaging, uploads, ops
+
+ARCHITECTURAL CONVENTIONS
+  - Every module is routes.ts + service.ts (+ schema.ts for the large ones).
+    Routes validate and delegate. Business logic never lives in a route handler.
+  - Every request body/query is parsed by a Zod schema via validate(); the
+    parsed value REPLACES the raw one, so handlers get coerced, stripped data.
+  - Every error is an AppError with a human-readable message. errorHandler is
+    the last line of defence against a raw 500 reaching a customer.
+  - Money helpers live in lib/money.ts. splitEscrow() guarantees advance +
+    balance == total exactly, with the rounding remainder in the balance.
+  - Anything that must not half-happen runs in a prisma.$transaction. Order
+    creation, escrow capture, and QC decisions are all transactional.
+  - Notifications are written INSIDE the transaction that caused them, so a
+    customer is never told about something that got rolled back.
+
+AUTH MODEL
+  - Access token: JWT, 15 minutes, carries { sub, role, isGuest, designerId }.
+  - Refresh token: opaque random, hashed with SHA-256 in the database, 30 days,
+    ROTATING — the old one is revoked the instant a new one is issued.
+  - Phone OTP (6-digit, CSPRNG, hashed, 10-min TTL, 5 attempts) and
+    email+password (argon2) are both supported.
+  - GUEST MODE: POST /api/auth/guest returns an opaque guestToken. The client
+    sends it as X-Guest-Token. Designs created under it have ownerId=null and
+    guestToken set. On signup/login the token is passed along and
+    claimGuestDesigns() reassigns every design to the new account — this is what
+    makes "your guest design appears in your account" work.
+
+RATE LIMITS
+  general 240/min per identity · auth 10/15min per ip+phone · ai 12/min per identity
+
+--------------------------------------------------------------------------------
+SECTION 6 — API SURFACE
+--------------------------------------------------------------------------------
+
+All routes are under /api. Responses are { data: ... } or
+{ error: { code, message, details?, alternatives? } }.
+
+AUTH
+  POST   /auth/guest                       start a guest session
+  POST   /auth/otp/request                 send an OTP
+  POST   /auth/otp/verify                  verify + issue session (+ claim guest)
+  POST   /auth/signup                      email signup
+  POST   /auth/login                       email login
+  POST   /auth/refresh                     rotate the refresh token
+  POST   /auth/logout
+  POST   /auth/claim-guest                 claim guest designs after the fact
+  GET    /auth/me                          the shape the app shell needs on boot
+
+DESIGNS  (accept a signed-in user OR a guest token)
+  POST   /designs/generate                 brief -> up to 4 concepts
+  GET    /designs/jobs/:jobId              poll target for the staged loader
+  GET    /designs                          list (cursor paginated)
+  GET    /designs/:id                      design + full version list
+  PATCH  /designs/:id                      rename / archive / set target budget
+  DELETE /designs/:id                      soft delete (archive)
+  POST   /designs/:id/duplicate
+  POST   /designs/:id/edit                 conversational edit -> NEW version
+  GET    /designs/:id/versions/:versionId
+  GET    /designs/:id/versions/compare?a=&b=   diff + price delta
+  POST   /designs/:id/versions/:vId/activate   undo / redo / jump in the tree
+
+BUDGET OPTIMIZER
+  POST   /designs/:id/budget/optimize      target -> up to 3 plans
+  GET    /designs/:id/budget/runs          rehydrate the panel
+  PATCH  /designs/:id/budget/plans/:planId/substitutions
+                                           toggle substitutions; returns live
+                                           recomputed price + similarity
+  POST   /designs/:id/budget/plans/:planId/apply
+                                           creates a NEW version (explicit)
+
+MARKETPLACE
+  GET    /marketplace/designers            public directory
+  GET    /marketplace/designers/:slug      public studio profile
+  GET    /marketplace/scoring              the weights, exposed on purpose
+  POST   /marketplace/requests             publish a design for quotes
+  GET    /marketplace/requests/:id/matches matched designers
+  GET    /marketplace/requests/:id/bids    bid comparison
+  GET    /marketplace/opportunities        [designer] matched requests
+  POST   /marketplace/requests/:id/bids    [designer] submit/update a bid
+  GET    /marketplace/bids                 [designer] own bids
+  POST   /marketplace/bids/:id/withdraw
+
+ORDERS
+  POST   /orders                           accept a bid -> PENDING_PAYMENT
+  GET    /orders                           ?as=customer|designer
+  GET    /orders/:id                       includes escrow + fit guarantee blocks
+  PATCH  /orders/:id/milestones/:mId       [designer] production update
+  POST   /orders/:id/ship                  [ops]
+  POST   /orders/:id/deliver               opens the 7-day fit window
+  POST   /orders/:id/fit                   "How does it fit?"
+  POST   /orders/:id/alterations           first one is free
+  POST   /orders/:id/review
+
+PAYMENTS
+  GET    /payments/config                  public key id
+  POST   /payments/intents                 create ADVANCE or BALANCE intent
+  POST   /payments/:id/confirm             signature-verified capture
+  GET    /payments/orders/:orderId/escrow  escrow summary
+  POST   /payments/webhook                 Razorpay, raw body, HMAC verified
+
+QUALITY CONTROL
+  GET    /qc/orders/:orderId               customer-visible result
+  GET    /qc/queue                         [ops] review queue
+  POST   /qc/start                         [ops] open a round
+  POST   /qc/:checkId/photos               [ops] upload + AI similarity
+  POST   /qc/:checkId/decide               [ops] PASS releases the escrow
+
+DESIGNERS
+  POST   /designers/profile                create studio (flips role to DESIGNER)
+  GET    /designers/profile                own profile + completion checklist
+  PATCH  /designers/profile
+  POST   /designers/profile/publish        gated on portfolio + verification
+  POST   /designers/portfolio              upload (AI auto-tags)
+  PATCH  /designers/portfolio/:itemId      designer edits the tags
+  DELETE /designers/portfolio/:itemId
+  GET    /designers/dashboard              metrics + orders needing attention
+  GET    /designers/copilot                today's tasks (AI, with a rules fallback)
+  GET    /designers/earnings               paid / pending / in escrow
+  PUT    /designers/payout-account
+  POST   /designers/verification
+
+USERS
+  PATCH  /users/me
+  GET|POST|DELETE /users/me/measurements
+  GET|POST|DELETE /users/me/addresses
+  GET|POST /users/me/collections  (+ add/remove designs)
+  GET    /users/me/notifications
+  POST   /users/me/notifications/read
+
+MESSAGING
+  GET    /messages                         inbox with unread counts
+  GET    /messages/:conversationId/messages
+  POST   /messages/:conversationId/messages
+  POST   /messages/:conversationId/read
+  POST   /messages/requests/:requestId/open
+
+OPS
+  GET    /ops/overview
+  GET    /ops/designers        POST /ops/designers/:id/verify
+  GET|POST|DELETE /ops/cost-rules
+  GET    /ops/disputes         POST /ops/disputes/:id/resolve
+  GET    /ops/payouts          POST /ops/payouts/:id/mark-paid
+
+UPLOADS
+  POST   /uploads/sign                     signed Supabase URL; bytes never
+                                           pass through the API
+
+HEALTH
+  GET    /health                           liveness (dependency-free)
+  GET    /health/ready                     checks database + AI service
+  GET    /config                           advance %, fit window, guest quota
+
+--------------------------------------------------------------------------------
+SECTION 7 — DATABASE
+--------------------------------------------------------------------------------
+
+Postgres (Supabase). Full schema: backend/prisma/schema.prisma.
+
+CONVENTIONS
+  - cuid() primary keys
+  - Money: Int, always PAISE
+  - Timestamps: @db.Timestamptz, always UTC
+  - Snake_case table names via @@map; camelCase in code
+  - Two connection URLs: DATABASE_URL (pooled, 6543) for the app,
+    DIRECT_URL (direct, 5432) for migrations. Migrations cannot use pgbouncer.
+
+ENTITY GROUPS
+
+  IDENTITY
+    User, RefreshToken, OtpChallenge, CustomerProfile, Measurement, Address
+
+  DESIGNER
+    DesignerProfile, PortfolioItem, DesignerVerification, PayoutAccount,
+    QualityScoreSnapshot
+
+  DESIGN STUDIO
+    Design                — the container; holds currentVersionId + guestToken
+    DesignVersion         — IMMUTABLE. versionNumber + parentVersionId form the
+                            version TREE, which is what makes branching and
+                            "compare versions" possible.
+    DesignImage           — FRONT / BACK / DETAIL per version
+    CostEstimate          — one per version, a RANGE (minTotal..maxTotal)
+    CostLineItem          — fabric / lining / embroidery / stitching / trims /
+                            finishing, each with quantity and unit
+    CostRule              — the ops-managed pricing knowledge base. The AI is
+                            handed these and may not invent rates.
+
+  BUDGET
+    BudgetRun             — one optimisation attempt at a target amount
+    BudgetPlan            — up to 3 per run; similarity %, savings, price
+    BudgetSubstitution    — from → to, costDelta, visualImpact, similarityDelta,
+                            isSelected, isOptional
+
+  MARKETPLACE
+    DesignRequest         — a version published for quotes (code ZRQ-1048)
+    DesignerMatch         — precomputed match + breakdown + rank
+    Bid                   — a firm quote; unique per (request, designer)
+
+  ORDERS & MONEY
+    Order                 — code ZR-1048; finalPrice, advance/balance split
+    OrderMilestone        — the production timeline, with photos
+    Payment               — Razorpay order/payment ids, capture state
+    LedgerEntry           — THE ESCROW. direction CREDIT/DEBIT, state
+                            HELD / RELEASED / REFUNDED / FEE
+    Payout                — designer transfer
+    QualityCheck / QualityCheckItem / QcPhoto
+    FitFeedback, AlterationRequest, Review
+    Dispute, DisputeMessage
+
+  MESSAGING & PLATFORM
+    Conversation, ConversationParticipant, Message, Notification
+    Subscription (Zari+)
+    AiJob                 — every AI call: type, status, stage, tokens, cost,
+                            latency. Drives the staged loader and cost tracking.
+    WebhookEvent          — idempotency guard for payment webhooks
+    AuditLog
+
+THE ESCROW LEDGER (read this before touching payments)
+
+    advance captured  →  LedgerEntry(CREDIT, HELD)   →  order CONFIRMED
+    balance captured  →  LedgerEntry(CREDIT, HELD)
+    QC PASSES         →  LedgerEntry(DEBIT, RELEASED) + LedgerEntry(DEBIT, FEE)
+                         + Payout row + RazorpayX transfer
+    dispute refund    →  LedgerEntry(DEBIT, REFUNDED)
+
+  Escrow is a LEDGER, not a payment-provider feature. Money is captured to the
+  Zari account and recorded as HELD. releaseEscrow() is called from exactly ONE
+  place — the QC pass path in modules/qc/routes.ts. There is deliberately no
+  admin "just pay them" shortcut.
+
+THE MATCHING WEIGHTS  (services/matching.ts)
+    similarityMatch  0.30   does their portfolio look like this design?
+    craftMatch       0.25   do they actually do this embroidery/fabric?
+    quality          0.25   Zari Quality Score
+    capacityFit      0.12   can they take the work right now?
+    locationFit      0.08   same city = easier fittings, faster shipping
+  Price is NOT an input. If you change these, change the customer-facing
+  explanation copy too.
+
+THE QUALITY SCORE WEIGHTS  (services/qualityScore.ts)
+    craftSkill       0.25
+    pastSuccess      0.20   orders that passed QC on the first round
+    onTimeDelivery   0.25
+    communication    0.15
+    customerRating   0.15
+  A studio with fewer than 3 completed orders is damped toward a neutral 60 so a
+  new designer reads as "New to Zari", not as a zero. Recomputed on every QC
+  result, delivery, review, and verification.
+
+--------------------------------------------------------------------------------
+SECTION 8 — AI SERVICE
+--------------------------------------------------------------------------------
+
+Location: ai-service/
+Stack: Python 3.12, FastAPI, Anthropic SDK, httpx, Pydantic v2.
+Model: claude-opus-5, adaptive thinking, effort=high, structured outputs.
+Auth: X-Service-Token shared secret. Never exposed to browsers.
+
+  app/
+    main.py         app, logging, health, human-readable error handler
+    config.py       pydantic-settings; refuses to start without required vars
+    deps.py         constant-time service-token check
+    schemas.py      wire models + hand-written JSON Schemas
+    prompts.py      the system prompts — these encode the product rules
+    services/llm.py structured_call(): one place that calls Claude
+    services/imagegen.py  pluggable Replicate / fal / none
+    routers/design.py     generate, edit, budget-optimize, manufacturability
+    routers/studio.py     portfolio autotag, QC similarity, copilot digest
+
+ENDPOINTS
+  POST /v1/design/generate           brief (+ inspiration images) → N concepts
+  POST /v1/design/edit               spec + instruction → new spec + summary
+  POST /v1/design/budget-optimize    spec + target → plans + substitutions
+  POST /v1/design/manufacturability  spec → verdict
+  POST /v1/portfolio/autotag         images → category/fabric/craft/palette/tags
+  POST /v1/qc/similarity             spec + QC photos → score + findings
+  POST /v1/copilot/digest            studio state → today's tasks
+  GET  /health, /health/ready
+
+WHY STRUCTURED OUTPUTS
+  Every call uses output_config.format with a JSON Schema, so the response is
+  guaranteed-shape JSON. No regex extraction, no retry-on-parse loop. The
+  schemas are hand-written in schemas.py rather than generated from Pydantic,
+  because the feature supports a restricted JSON Schema subset (no numeric
+  bounds, no string lengths, no recursion, additionalProperties must be false).
+
+WHY ADAPTIVE THINKING
+  Garment construction, bill-of-materials costing, and substitution trade-offs
+  all need real multi-step reasoning. thinking={"type":"adaptive"} lets the
+  model decide how much per call; output_config.effort tunes the overall depth.
+
+THE 422 CONTRACT
+  When a design cannot be reliably stitched, the AI service returns HTTP 422
+  with { detail: { message, alternatives[] } }. The backend's aiClient turns
+  that into an UNMANUFACTURABLE AppError, which the frontend renders as:
+    "That combination can't be reliably stitched by our current designer network."
+    followed by two concrete alternatives.
+  This is why a bad edit never silently succeeds.
+
+GROUNDING
+  The backend loads active CostRule rows and passes them into every costing
+  call. The prompt states these are the ONLY rates the model may use. This is
+  what stops invented prices, and it is why ops owns /ops/cost-rules.
+
+COST TRACKING
+  Every response carries usage { model, inputTokens, outputTokens, costPaise,
+  latencyMs }, which the backend writes onto the AiJob row.
+
+--------------------------------------------------------------------------------
+SECTION 9 — MONEY, IN DETAIL
+--------------------------------------------------------------------------------
+
+  Customer accepts a bid of ₹6,400        → Order PENDING_PAYMENT
+  Advance 40%  = ₹2,560                    → captured, LedgerEntry HELD
+                                           → Order CONFIRMED, designer notified
+  Production happens                       → milestones updated by the designer
+  Zari QC passes                           → LedgerEntry RELEASED
+                                           → platform fee 10% = ₹640 → FEE
+                                           → Payout ₹5,760 queued to the designer
+  Balance 60% = ₹3,840                     → charged after QC passes
+  Delivery                                 → 7-day fit window opens
+  Fit: "Perfect"                           → Order COMPLETED
+  Fit: "Needs alteration"                  → first alteration is FREE
+
+  Copy that must appear wherever money is shown:
+    "Your designer does not receive the final payment until Zari's quality
+     check passes."
+
+--------------------------------------------------------------------------------
+SECTION 10 — DEPLOYMENT
+--------------------------------------------------------------------------------
+
+  GitHub  →  Render Blueprint (render.yaml)  →  two Docker services
+  Database: Supabase Postgres. Storage: Supabase Storage bucket "zari-media".
+
+  Migrations run AUTOMATICALLY at container start via
+  backend/docker-entrypoint.sh → `prisma migrate deploy`. That command only
+  applies existing migrations, so backend/prisma/migrations/ MUST be committed
+  (create it once locally with `npx prisma migrate dev --name init`).
+
+  Secrets live only in Render's environment settings. Every variable, and the
+  exact steps to obtain each key, are documented in:
+    backend/.env.example
+    ai-service/.env.example
+  and the runbook is DEPLOYMENT.md.
+
+  AI_SERVICE_TOKEN (backend) and SERVICE_TOKEN (ai-service) must be the SAME
+  value. A mismatch shows up as every generation failing with a 502 while
+  /api/health still looks healthy — check /api/health/ready.
+
+  Local: `docker compose up --build`.
+
+--------------------------------------------------------------------------------
+SECTION 11 — WHAT IS BUILT AND WHAT IS NOT
+--------------------------------------------------------------------------------
+
+BUILT
+  Backend    complete — auth + guest mode, designs + immutable versions,
+             budget optimizer, marketplace + matching + bids, orders, escrow
+             ledger, payments + webhooks, QC, fit window, alterations, reviews,
+             messaging, notifications, designer dashboard/copilot/earnings,
+             ops console, uploads, audit log
+  Database   complete Prisma schema, seed with realistic Indian cost rules and
+             demo designers
+  AI service complete — generation, edit, budget, manufacturability, autotag,
+             QC similarity, copilot
+  Deploy     Dockerfiles, docker-compose, render.yaml, env examples, runbook
+
+NOT BUILT
+  Frontend   still the single-file demo with inline mock data. It has NOT been
+             wired to this API. The next work is:
+               1. Extract App.tsx into pages/ components/ services/ hooks/
+               2. Build a typed API client + TanStack Query hooks
+               3. Replace the mock consts with real calls
+               4. Add the designer dashboard, bids, copilot, earnings screens
+                  (only /designer/profile exists today)
+               5. Add the ops console screens
+               6. Wire the real version tree and full-screen budget optimizer
+  Real-time  messaging is REST-polled; websockets are not implemented
+  Shipping   no courier integration; ship/deliver are manual ops actions
+  Search     no full-text/vector search on the designer directory yet
+
+--------------------------------------------------------------------------------
+SECTION 12 — MOCK DATA AND COPY STANDARDS
+--------------------------------------------------------------------------------
+
+  Use realistic Indian names, studios, cities, garments, and prices.
+    Aanya Mehta / Aanya Studio / Bengaluru
+    Mira Raghavan / Mira Atelier / Mumbai
+    Rekha Solanki / Rekha & Thread / Jaipur
+    Anika Narang (customer) / Hyderabad
+  Garments: lehenga, anarkali, sari set, kurta, blouse.
+  Fabrics: Chanderi silk, raw silk, georgette, organza, velvet, cotton mul.
+  Crafts: resham, zardozi, gota patti, mirrorwork, sequin.
+
+  Never use: John Doe, Jane Doe, Test Designer, Lorem ipsum, "Rs 8240".
+
+  Voice: calm, editorial, sentence case, human. No exclamation marks, no emoji,
+  no hype. Toasts are subtle: "Design saved", "New version created",
+  "Budget updated", "Designer request sent".
+
+================================================================================
+END OF SPECIFICATION
+================================================================================

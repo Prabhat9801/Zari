@@ -1,0 +1,153 @@
+# =============================================================================
+# Zari — Render Blueprint
+#
+# Deploys the two backend services as separate Docker services from this repo.
+# In Render: New -> Blueprint -> connect this GitHub repo -> Apply.
+#
+# Secrets are deliberately NOT in this file. Every value marked sync:false must
+# be filled in once, in the Render dashboard, per service. See DEPLOYMENT.md and
+# the .env.example files for how to obtain each one.
+#
+# The frontend (artifacts/zari) is a static SPA — deploy it as a Static Site,
+# either here or on Vercel/Netlify. It is intentionally left out of this
+# blueprint because it currently has no backend wiring.
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # Node API — owns the database, auth, orders, escrow
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: zari-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    region: singapore # closest Render region to India
+    plan: starter
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "8080"
+      - key: LOG_LEVEL
+        value: info
+
+      # --- Supabase (Settings -> Database -> Connection string) --------------
+      - key: DATABASE_URL # pooled, port 6543, ?pgbouncer=true&connection_limit=1
+        sync: false
+      - key: DIRECT_URL # direct, port 5432 — used by prisma migrate deploy
+        sync: false
+
+      # --- Auth secrets (Render generates strong values automatically) -------
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: ACCESS_TOKEN_TTL
+        value: 15m
+      - key: REFRESH_TOKEN_TTL_DAYS
+        value: "30"
+
+      # --- Frontend origins (no trailing slash, comma separated) -------------
+      - key: CORS_ORIGINS
+        sync: false
+
+      # --- AI service --------------------------------------------------------
+      # Render resolves this to the deployed AI service's URL automatically.
+      - key: AI_SERVICE_URL
+        fromService:
+          name: zari-ai-service
+          type: web
+          property: hostport
+      # Must match SERVICE_TOKEN on zari-ai-service. Set the SAME value in both.
+      - key: AI_SERVICE_TOKEN
+        sync: false
+      - key: AI_SERVICE_TIMEOUT_MS
+        value: "120000"
+
+      # --- Supabase Storage --------------------------------------------------
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_STORAGE_BUCKET
+        value: zari-media
+
+      # --- Payments ----------------------------------------------------------
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
+
+      # --- OTP ---------------------------------------------------------------
+      - key: OTP_PROVIDER
+        value: console # switch to msg91 once DLT registration clears
+      - key: MSG91_AUTH_KEY
+        sync: false
+      - key: MSG91_TEMPLATE_ID
+        sync: false
+
+      # --- Business rules ----------------------------------------------------
+      - key: ADVANCE_PERCENT
+        value: "40"
+      - key: PLATFORM_FEE_PERCENT
+        value: "10"
+      - key: FIT_WINDOW_DAYS
+        value: "7"
+      - key: GUEST_FREE_GENERATIONS
+        value: "1"
+
+      # Set to true for the FIRST deploy only, then back to false.
+      - key: RUN_SEED_ON_START
+        value: "false"
+
+  # ---------------------------------------------------------------------------
+  # Python AI service — stateless, no database
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: zari-ai-service
+    runtime: docker
+    dockerfilePath: ./ai-service/Dockerfile
+    dockerContext: ./ai-service
+    region: singapore
+    plan: starter
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: PORT
+        value: "9000"
+      - key: LOG_LEVEL
+        value: INFO
+
+      # Must match AI_SERVICE_TOKEN on zari-api.
+      - key: SERVICE_TOKEN
+        sync: false
+
+      # console.anthropic.com -> Settings -> API Keys
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: MODEL_ID
+        value: claude-opus-5
+      - key: EFFORT
+        value: high
+      - key: MAX_TOKENS
+        value: "16000"
+
+      # Imagery is optional — the product works fully without it.
+      - key: IMAGE_PROVIDER
+        value: none
+      - key: REPLICATE_API_TOKEN
+        sync: false
+      - key: FAL_API_KEY
+        sync: false
+
+      - key: REQUEST_TIMEOUT_SECONDS
+        value: "180"
+      - key: MAX_CONCEPTS
+        value: "4"

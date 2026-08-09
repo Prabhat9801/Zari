@@ -1,0 +1,72 @@
+# =============================================================================
+# Zari — local development stack
+#
+#   docker compose up --build
+#
+# Brings up the API (with migrations applied automatically) and the Python AI
+# service. By default it points at your Supabase database — set DATABASE_URL and
+# DIRECT_URL in backend/.env first.
+#
+# To run entirely offline against a local Postgres instead:
+#   docker compose --profile local-db up --build
+# and set these in backend/.env:
+#   DATABASE_URL=postgresql://zari:zari@postgres:5432/zari
+#   DIRECT_URL=postgresql://zari:zari@postgres:5432/zari
+# =============================================================================
+
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: zari-api
+    env_file:
+      - ./backend/.env
+    environment:
+      NODE_ENV: development
+      PORT: 8080
+      # Inside the compose network the AI service is reachable by name.
+      AI_SERVICE_URL: http://ai-service:9000
+      RUN_SEED_ON_START: "true"
+    ports:
+      - "8080:8080"
+    depends_on:
+      ai-service:
+        condition: service_started
+    restart: unless-stopped
+
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: zari-ai
+    env_file:
+      - ./ai-service/.env
+    environment:
+      ENVIRONMENT: development
+      PORT: 9000
+    ports:
+      - "9000:9000"
+    restart: unless-stopped
+
+  # Optional local Postgres. Only starts with: --profile local-db
+  postgres:
+    image: postgres:16-alpine
+    container_name: zari-postgres
+    profiles: ["local-db"]
+    environment:
+      POSTGRES_USER: zari
+      POSTGRES_PASSWORD: zari
+      POSTGRES_DB: zari
+    ports:
+      - "5432:5432"
+    volumes:
+      - zari-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zari"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  zari-pgdata:

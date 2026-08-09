@@ -1,0 +1,112 @@
+import type { NextFunction, Request, Response } from 'express';
+import jwt from 'jsonwebtoken';
+import type { UserRole } from '@prisma/client';
+import { env } from '../config/env.js';
+import { forbidden, unauthorized } from '../lib/errors.js';
+
+export interface AuthUser {
+  id: string;
+  role: UserRole;
+  isGuest: boolean;
+  designerId?: string | null;
+}
+
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace Express {
+    interface Request {
+      user?: AuthUser;
+      guestToken?: string;
+    }
+  }
+}
+
+export interface AccessTokenPayload {
+  sub: string;
+  role: UserRole;
+  isGuest: boolean;
+  designerId?: string | null;
+}
+
+export function signAccessToken(payload: AccessTokenPayload): string {
+  return jwt.sign(payload, env.JWT_ACCESS_SECRET, {
+    expiresIn: env.ACCESS_TOKEN_TTL,
+    issuer: 'zari',
+  } as jwt.SignOptions);
+}
+
+export function verifyAccessToken(token: string): AccessTokenPayload {
+  return jwt.verify(token, env.JWT_ACCESS_SECRET, { issuer: 'zari' }) as AccessTokenPayload;
+}
+
+function readToken(req: Request): string | null {
+  const header = req.headers.authorization;
+  if (!header?.startsWith('Bearer ')) return null;
+  return header.slice(7).trim() || null;
+}
+
+/**
+ * Populates req.user when a valid token is present, and req.guestToken from the
+ * X-Guest-Token header. Never rejects — routes decide what they require.
+ * This is what lets a visitor use the Design Studio without signing up.
+ */
+export function attachIdentity(req: Request, _res: Response, next: NextFunction): void {
+  const guest = req.headers['x-guest-token'];
+  if (typeof guest === 'string' && guest.length > 0) req.guestToken = guest;
+
+  const token = readToken(req);
+  if (!token) return next();
+
+  try {
+    const payload = verifyAccessToken(token);
+    req.user = {
+      id: payload.sub,
+      role: payload.role,
+      isGuest: payload.isGuest,
+      designerId: payload.designerId ?? null,
+    };
+  } catch {
+    // An expired or malformed token is treated as "not signed in" rather than
+    // an error, so the client can silently refresh instead of showing a modal.
+  }
+  next();
+}
+
+/** Requires a real, signed-in account. */
+export function requireAuth(req: Request, _res: Response, next: NextFunction): void {
+  if (!req.user) return next(unauthorized());
+  next();
+}
+
+export function requireRole(...roles: UserRole[]) {
+  return (req: Request, _res: Response, next: NextFunction): void => {
+    if (!req.user) return next(unauthorized());
+    if (!roles.includes(req.user.role)) {
+      return next(forbidden('This area is for a different kind of account.'));
+    }
+    next();
+  };
+}
+
+/** A designer route also needs a designer profile to exist. */
+export function requireDesigner(req: Request, _res: Response, next: NextFunction): void {
+  if (!req.user) return next(unauthorized());
+  if (req.user.role !== 'DESIGNER' && req.user.role !== 'ADMIN') {
+    return next(forbidden('Create a designer studio to access this.'));
+  }
+  if (!req.user.designerId && req.user.role === 'DESIGNER') {
+    return next(forbidden('Finish setting up your studio profile first.'));
+  }
+  next();
+}
+
+/**
+ * Requires either a signed-in user or a guest token. Used by the Design Studio,
+ * where a visitor gets one free generation before being asked to sign up.
+ */
+export function requireIdentity(req: Request, _res: Response, next: NextFunction): void {
+  if (!req.user && !req.guestToken) {
+    return next(unauthorized('Start a design to continue.'));
+  }
+  next();
+}

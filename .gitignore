@@ -11,6 +11,24 @@ out-tsc
 # dependencies
 node_modules
 
+# secrets — never commit a filled-in env file
+.env
+.env.local
+.env.*.local
+backend/.env
+ai-service/.env
+!.env.example
+!**/.env.example
+
+# python (ai-service)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
 # IDEs and editors
 /.idea
 .project

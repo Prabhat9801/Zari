@@ -1,0 +1,1486 @@
+# ZARI — FRONTEND PRODUCT BUILD SPECIFICATION
+
+You are building the complete production-quality frontend for **Zari**, a premium Indian custom-fashion marketplace.
+
+Zari's tagline is:
+
+**"From Inspiration to Stitching."**
+
+## PRODUCT DEFINITION
+
+Zari is NOT an "AI fashion app".
+
+Zari is a two-sided marketplace where customers can:
+
+1. Upload a fashion inspiration image or describe an outfit.
+2. Generate manufacturable outfit concepts.
+3. Edit the design conversationally.
+4. See transparent itemised cost estimates.
+5. Optimize the design to fit a target budget.
+6. Request quotes from verified designers.
+7. Compare designers using an AI Quality Score.
+8. Place an order through escrow.
+9. Track production milestones.
+10. Receive human quality control.
+11. Receive the garment.
+12. Use a 7-day fit window and free first alteration.
+
+Designers can:
+
+1. Create a verified profile.
+2. Upload a portfolio.
+3. Receive matched design requests.
+4. Submit bids.
+5. Manage orders.
+6. Track production.
+7. Use Zari Copilot.
+8. Manage earnings and capacity.
+9. Build their Quality Score.
+
+The most important product loop is:
+
+**Inspiration → Design → Edit → Price → Budget Fit → Designer → Order → QC → Delivery**
+
+The frontend must make this workflow extremely clear.
+
+---
+
+# PRODUCT PHILOSOPHY
+
+The UI should communicate:
+
+* premium
+* trustworthy
+* transparent
+* editorial
+* modern
+* Indian
+* calm
+* sophisticated
+* human
+* precise
+
+Avoid:
+
+* generic SaaS purple gradients
+* excessive glassmorphism
+* excessive rounded cards
+* childish AI interfaces
+* overly decorative Indian motifs
+* gold everywhere
+* generic dashboard templates
+* excessive animations
+* fake AI hype
+* "magic" language that hides pricing or decisions
+
+The product should feel like:
+
+**A luxury fashion atelier combined with a modern design workspace and a trustworthy marketplace.**
+
+---
+
+# TECH STACK
+
+Use:
+
+* React
+* TypeScript
+* Vite
+* Tailwind CSS
+* shadcn/ui where appropriate
+* Lucide icons
+* React Router
+* TanStack Query architecture, even if initially using mock services
+* Zod for frontend validation
+* Framer Motion for restrained animations
+
+Use a clean component architecture.
+
+Do NOT put business logic directly inside page components.
+
+---
+
+# ARCHITECTURE
+
+Use this structure:
+
+src/
+
+components/
+ui/
+layout/
+studio/
+design/
+marketplace/
+designer/
+orders/
+budget/
+trust/
+
+pages/
+marketing/
+customer/
+designer/
+ops/
+
+features/
+auth/
+design-studio/
+design/
+budget-optimizer/
+marketplace/
+orders/
+designer/
+messaging/
+
+services/
+mock/
+api/
+
+types/
+design.ts
+user.ts
+marketplace.ts
+order.ts
+designer.ts
+costing.ts
+
+hooks/
+
+lib/
+
+data/
+
+routes/
+
+Do not couple UI components directly to mock data.
+
+Create service interfaces.
+
+Example:
+
+designService.generate()
+designService.edit()
+designService.optimizeBudget()
+designService.getDesign()
+marketplaceService.getMatchedDesigners()
+marketplaceService.getBids()
+orderService.getOrder()
+designerService.getDashboard()
+
+Initially implement mock services.
+
+The backend will later replace these implementations.
+
+---
+
+# RESPONSIVE DESIGN
+
+The frontend must be fully responsive.
+
+Desktop:
+
+* optimized for 1440px
+* works down to 1024px
+
+Tablet:
+
+* 768px+
+
+Mobile:
+
+* 375px+
+* 390px
+* 430px
+
+Do NOT simply shrink desktop layouts.
+
+The AI Design Studio must have a dedicated mobile composition.
+
+---
+
+# DESIGN SYSTEM
+
+## COLORS
+
+Background:
+#F8F6F2
+
+Surface:
+#FFFFFF
+
+Primary text:
+#171513
+
+Secondary text:
+#716B63
+
+Border:
+#E5E0D8
+
+Primary brand:
+#8B3A3A
+
+Primary dark:
+#6F2929
+
+Warm accent:
+#C49A6C
+
+Success:
+#3F7655
+
+Warning:
+#B77932
+
+Use the brand color sparingly.
+
+The interface should remain mostly neutral.
+
+---
+
+# TYPOGRAPHY
+
+Use:
+
+Display:
+Cormorant Garamond or Playfair Display
+
+UI:
+Inter or Manrope
+
+Use the serif display font for:
+
+* hero headings
+* fashion/editorial moments
+* major design titles
+
+Use the sans-serif font for:
+
+* buttons
+* labels
+* pricing
+* navigation
+* data
+* forms
+* dashboards
+
+---
+
+# SPACING
+
+Use a consistent spacing scale.
+
+Prefer generous whitespace.
+
+Base:
+4px
+
+Common:
+8
+12
+16
+20
+24
+32
+40
+48
+64
+80
+
+Avoid cramped UI.
+
+---
+
+# BORDER RADIUS
+
+Do not make every component extremely rounded.
+
+Use:
+
+buttons: 8px
+inputs: 10px
+cards: 12px
+large surfaces: 16px
+
+Use occasional sharp/low-radius editorial elements.
+
+---
+
+# SHADOWS
+
+Use subtle shadows only.
+
+No floating-everything UI.
+
+Borders should do most of the structural work.
+
+---
+
+# ROUTES
+
+Create these routes.
+
+PUBLIC:
+
+/
+/how-it-works
+/designers
+/pricing
+/trust
+
+AUTH:
+
+/login
+/signup
+
+CUSTOMER:
+
+/app
+/app/discover
+/app/studio
+/app/studio/:designId
+/app/designs
+/app/designs/:designId
+/app/collections
+/app/marketplace
+/app/orders
+/app/orders/:orderId
+/app/messages
+/app/profile
+/app/zari-plus
+
+DESIGNER:
+
+/designer
+/designer/orders
+/designer/orders/:orderId
+/designer/bids
+/designer/portfolio
+/designer/copilot
+/designer/earnings
+/designer/quality
+/designer/profile
+
+OPS:
+
+/ops
+/ops/qc
+/ops/designers
+/ops/disputes
+/ops/cost-rules
+
+---
+
+# MARKETING LANDING PAGE
+
+Build a premium landing page.
+
+Hero:
+
+"From Inspiration to Stitching."
+
+Subheading:
+
+"Turn any fashion inspiration into a design you can actually make — with transparent pricing, budget control, and verified designers."
+
+Primary CTA:
+
+"Create your design"
+
+Secondary CTA:
+
+"Explore designs"
+
+Hero visual should show the transformation:
+
+INSPIRATION IMAGE
+→
+AI DESIGN
+→
+COST
+→
+DESIGNER
+→
+FINISHED GARMENT
+
+Do NOT use generic AI stock imagery.
+
+Use high-quality fashion imagery/placeholders.
+
+Sections:
+
+1. Hero
+2. How Zari works
+3. AI Design Studio
+4. Budget Optimizer
+5. Designer marketplace
+6. Trust/QC
+7. Designer side
+8. Social proof
+9. CTA
+10. Footer
+
+---
+
+# CUSTOMER APP SHELL
+
+Desktop sidebar:
+
+ZARI
+
+Home
+Discover
+Design Studio
+My Designs
+Collections
+Orders
+Messages
+
+separator
+
+Zari+
+
+separator
+
+Profile
+Settings
+
+Top navigation:
+
+Search
+Notifications
+Profile avatar
+
+Mobile:
+
+Bottom navigation:
+
+Home
+Discover
+Studio
+Orders
+Profile
+
+---
+
+# CUSTOMER HOME
+
+The home screen should immediately ask:
+
+"What are you imagining?"
+
+Large design creation composer.
+
+Placeholder:
+
+"Pastel lavender lehenga for my engagement, under ₹10,000"
+
+Actions:
+
+Upload inspiration
+Describe it
+Browse inspiration
+
+Show:
+
+Continue designing
+
+Recent designs
+
+Recommended looks
+
+Popular designers
+
+Do not overload the page.
+
+---
+
+# AI DESIGN STUDIO
+
+THIS IS THE MOST IMPORTANT SCREEN.
+
+Desktop layout:
+
+LEFT:
+Conversation
+
+CENTER:
+Garment visual canvas
+
+RIGHT:
+Design specification + pricing
+
+Header:
+
+Back
+Design title
+Save
+Share
+More
+
+LEFT PANEL:
+
+AI/User conversation.
+
+Example:
+
+AI:
+
+"I created four concepts based on your inspiration."
+
+User:
+
+"Make the sleeves full and change the embroidery to sequins."
+
+AI:
+
+"Done. Full sleeves add ₹340 and the sequin treatment adds ₹620."
+
+Composer:
+
+"Ask Zari to change anything..."
+
+Quick actions:
+
+Full sleeves
+Change fabric
+Add dupatta
+Simplify embroidery
+Make more festive
+
+CENTER:
+
+Large garment visualization.
+
+Tabs:
+
+Front
+Back
+Detail
+
+Controls:
+
+Zoom
+Fit to screen
+Compare
+Fullscreen
+
+RIGHT:
+
+DESIGN SPEC
+
+Category
+Silhouette
+Fabric
+Neckline
+Sleeves
+Embroidery
+Motifs
+Palette
+Occasion
+
+COST ESTIMATE
+
+Fabric
+Lining
+Embroidery
+Stitching
+Trims
+Finishing
+
+Total estimate range.
+
+Always visually distinguish:
+
+ESTIMATE
+
+from:
+
+FINAL QUOTE
+
+Show confidence where appropriate.
+
+---
+
+# DESIGN VERSION TREE
+
+Every edit should create a new immutable version.
+
+Show a visual version timeline/tree.
+
+Example:
+
+Version 1
+↓
+Version 2
+↓
+Version 3
+↘
+Version 4
+
+Support:
+
+* undo
+* redo
+* jump to version
+* branch
+* compare versions
+
+The UI should make experimentation feel safe.
+
+---
+
+# DESIGN ATTRIBUTE PANEL
+
+Use structured fields.
+
+Example:
+
+Silhouette:
+A-line
+
+Fabric:
+Silk
+
+Neckline:
+Sweetheart
+
+Sleeves:
+Full
+
+Embroidery:
+Sequins
+
+Motif density:
+Medium
+
+Palette:
+Lavender / Silver
+
+If an attribute has low confidence:
+
+show:
+
+"AI is unsure"
+
+[Confirm]
+
+This should feel collaborative rather than technical.
+
+---
+
+# BUDGET OPTIMIZER
+
+Create a premium full-screen or large-panel experience.
+
+Heading:
+
+"Make this design fit your budget."
+
+Current estimate:
+₹8,200
+
+Target:
+₹5,000
+
+Show up to 3 optimization plans.
+
+Each plan must show:
+
+Similarity %
+Savings
+Resulting price
+
+Example:
+
+OPTION A
+
+94% visual similarity
+
+₹4,900
+
+SAVE ₹3,300
+
+Changes:
+
+Silk → Satin
+-₹1,200
+
+Gold zari → thread
+-₹900
+
+Dense embroidery → medium
+-₹1,200
+
+Every change must have:
+
+cost delta
+
+visual impact description
+
+Users can toggle individual substitutions.
+
+When toggled:
+
+price updates immediately
+
+similarity updates immediately
+
+visual preview updates
+
+Do not make this a simple budget slider.
+
+The customer must understand exactly what they are sacrificing.
+
+If budget is impossible:
+
+show:
+
+"₹5,000 isn't achievable with this exact construction."
+
+Then explain the binding constraint.
+
+Offer alternatives.
+
+Never show a generic error.
+
+---
+
+# MARKETPLACE
+
+Create designer discovery around the user's design spec.
+
+Header:
+
+"Designers matched to your design"
+
+Cards must emphasize:
+
+designer
+quality score
+similarity match
+craft match
+on-time rate
+customer rating
+price
+lead time
+
+Do not sort only by cheapest price.
+
+Primary CTA:
+
+View designer
+
+Secondary:
+
+Compare
+
+---
+
+# AI QUALITY SCORE
+
+Create a transparent score component.
+
+Example:
+
+94
+Excellent match
+
+Breakdown:
+
+Similarity match 96%
+Craft skill 94%
+Past success 92%
+On-time delivery 97%
+Communication 95%
+Customer rating 4.8/5
+
+Use visual bars/rings but keep them clean.
+
+Include:
+
+"How is this score calculated?"
+
+---
+
+# DESIGNER PROFILE
+
+Profile should feel like a boutique studio.
+
+Hero:
+
+designer image
+studio name
+location
+quality score
+verified badge
+
+Sections:
+
+Portfolio
+Specialties
+Recent work
+Reviews
+Production capacity
+Typical lead time
+
+Show actual fashion work prominently.
+
+---
+
+# BIDDING
+
+Customer should be able to compare 3–5 bids.
+
+Bid card:
+
+Designer
+Quality Score
+Price
+Lead time
+Message
+Portfolio references
+Optional proposed modification
+
+CTA:
+
+Select designer
+
+Before payment show:
+
+Order summary
+Design spec
+Final agreed price
+Lead time
+Escrow explanation
+QC explanation
+Fit guarantee
+
+---
+
+# ORDER TRACKING
+
+Use a visual production timeline:
+
+Design confirmed
+Fabric sourced
+Cutting
+Embroidery
+Stitching
+Quality check
+Shipped
+Delivered
+Fit window
+
+Each milestone can contain:
+
+timestamp
+message
+photo
+
+Make the experience reassuring.
+
+---
+
+# ESCROW UI
+
+Always explain money clearly.
+
+Example:
+
+YOU PAY
+
+40%
+
+held in escrow
+
+After QC approval:
+
+60%
+
+released
+
+Include:
+
+"Your designer does not receive the final payment until Zari's quality check passes."
+
+This is a core trust feature.
+
+---
+
+# QC SCREEN
+
+Show:
+
+Quality Check
+
+✓ Design similarity
+✓ Stitching
+✓ Measurements
+✓ Embroidery
+✓ Finishing
+
+Show QC photos.
+
+Show reviewer status.
+
+Then:
+
+"Your order passed Zari Quality Check."
+
+---
+
+# FIT WINDOW
+
+After delivery:
+
+"How does it fit?"
+
+Options:
+
+Perfect
+Slight alteration
+Needs alteration
+Major issue
+
+Show:
+
+"Your first alteration is free."
+
+Provide clear next actions.
+
+---
+
+# DESIGNER DASHBOARD
+
+The designer dashboard should feel like a boutique business operating system.
+
+Top metrics:
+
+Revenue
+Active orders
+Pending bids
+On-time %
+Quality score
+
+Main area:
+
+Orders requiring attention.
+
+Copilot panel:
+
+"3 customer messages need replies."
+
+"Your capacity is 82% full."
+
+"You are likely to miss the Friday deadline on Order #1042."
+
+Actions:
+
+Review
+Reply
+Update milestone
+
+---
+
+# DESIGNER COPILOT
+
+Create an assistant panel.
+
+Example:
+
+Zari Copilot
+
+"You have 3 tasks today."
+
+1. Reply to customer
+2. Upload QC photos
+3. Submit bid
+
+Provide suggested actions.
+
+Keep AI secondary to actual work.
+
+---
+
+# DESIGNER PORTFOLIO
+
+Portfolio upload flow:
+
+Upload images
+AI auto-tags:
+
+Silhouette
+Fabric
+Embroidery
+Occasion
+Color
+Craft
+
+Allow designer to edit tags.
+
+---
+
+# PROFILE
+
+Customer profile:
+
+Personal information
+Measurements
+Saved designs
+Collections
+Orders
+Addresses
+Payment methods
+
+Designer profile:
+
+Studio information
+Portfolio
+Specialties
+Service areas
+Capacity
+Bank/payout settings
+Verification
+Quality score
+
+---
+
+# AUTHENTICATION UI
+
+Support:
+
+Phone OTP
+Google login
+
+Also support guest mode.
+
+IMPORTANT:
+
+A visitor should be able to enter the Design Studio without signing up.
+
+Allow one free design generation.
+
+When the user later signs up:
+
+their guest design must visually appear in their account.
+
+Show a beautiful claim-on-signup transition.
+
+Do not aggressively interrupt the user with signup modals.
+
+---
+
+# EMPTY STATES
+
+Do not use generic:
+
+"No data found."
+
+Instead:
+
+"My Designs"
+
+"Your next outfit starts here."
+
+[ Create a design ]
+
+Every empty state should have a clear next action.
+
+---
+
+# LOADING STATES
+
+AI generation should feel alive.
+
+Do not use a spinner only.
+
+Show stages:
+
+Understanding your inspiration
+Building the garment
+Checking manufacturability
+Estimating materials
+Preparing your concepts
+
+Show progress within the first second.
+
+Use skeletons where appropriate.
+
+---
+
+# ERROR STATES
+
+Errors must be human-readable.
+
+Never:
+
+"500 Internal Server Error"
+
+Instead:
+
+"Zari couldn't finish that design."
+
+"Nothing is lost. Try again."
+
+[ Retry ]
+
+For unmanufacturable edits:
+
+"That combination can't be reliably stitched by our current designer network."
+
+Then give two alternatives.
+
+---
+
+# TOASTS
+
+Keep them subtle.
+
+Examples:
+
+"Design saved"
+
+"New version created"
+
+"Budget updated"
+
+"Designer request sent"
+
+Do not overuse toast notifications.
+
+---
+
+# ACCESSIBILITY
+
+Implement:
+
+* keyboard navigation
+* visible focus states
+* semantic HTML
+* aria labels
+* sufficient contrast
+* reduced motion support
+* accessible form labels
+
+---
+
+# ANIMATION
+
+Use Framer Motion carefully.
+
+Preferred animations:
+
+* page transitions
+* card hover
+* image crossfade
+* version switching
+* budget changes
+* progress states
+* drawer transitions
+
+Avoid:
+
+* excessive bouncing
+* constant floating
+* distracting parallax
+* unnecessary animations
+
+Animations should make the product feel premium.
+
+---
+
+# IMAGE HANDLING
+
+Fashion imagery is central.
+
+Use aspect ratios intentionally.
+
+Portfolio:
+4:5
+
+Design concepts:
+3:4 or 4:5
+
+Hero:
+16:9
+
+Do not crop important garment details.
+
+Use object-position appropriately.
+
+---
+
+# MOCK DATA
+
+Create realistic mock data.
+
+Do not use:
+
+John Doe
+Jane Doe
+Test Designer
+Lorem ipsum
+
+Use realistic Indian names, studios, cities, garments and prices.
+
+Examples:
+
+Aanya Mehta
+Mira Atelier
+Rhea Kapoor
+Anika Studio
+Bengaluru
+Hyderabad
+Pune
+
+Use INR formatting everywhere.
+
+Example:
+
+₹8,240
+
+Never:
+
+Rs 8240
+
+---
+
+# IMPORTANT PRODUCT RULES
+
+1. Never show a fake final price when only an estimate exists.
+
+2. Always distinguish:
+   Estimate
+   Bid
+   Final price
+
+3. Never make price the only marketplace ranking factor.
+
+4. Quality Score must be transparent.
+
+5. Budget Optimizer must always be free.
+
+6. Guest users should experience value before signup.
+
+7. Design edits must preserve visual identity.
+
+8. Every edit creates a new version.
+
+9. Never silently change the user's design.
+
+10. Never silently accept an unmanufacturable instruction.
+
+11. Trust information must be visible at the moment money changes hands.
+
+---
+
+# FRONTEND STATE
+
+Implement frontend state using clean typed abstractions.
+
+Use mock data but make it realistic.
+
+Do not hardcode UI-specific business logic everywhere.
+
+Create reusable hooks:
+
+useDesign()
+useDesignVersions()
+useBudgetOptimizer()
+useMarketplace()
+useBids()
+useOrder()
+useDesignerDashboard()
+
+---
+
+# API BOUNDARY
+
+Create service interfaces so backend can later be connected.
+
+Example:
+
+interface DesignService {
+getDesign(id: string): Promise<Design>;
+generateDesign(input: GenerateDesignInput): Promise<DesignGeneration>;
+editDesign(input: EditDesignInput): Promise<DesignVersion>;
+optimizeBudget(input: BudgetOptimizationInput): Promise<BudgetPlan[]>;
+}
+
+Do the same for:
+
+MarketplaceService
+OrderService
+DesignerService
+AuthService
+MessagingService
+PaymentService
+
+Initially use mock implementations.
+
+DO NOT implement fake API calls throughout components.
+
+---
+
+# CODE QUALITY
+
+Requirements:
+
+* strict TypeScript
+* reusable components
+* no giant components
+* no duplicated styling
+* no inline business logic
+* no unnecessary dependencies
+* clean naming
+* responsive layouts
+* reusable design tokens
+* proper loading/error/empty states
+
+Before considering a page complete:
+
+1. Test desktop.
+2. Test tablet.
+3. Test mobile.
+4. Test keyboard navigation.
+5. Test loading state.
+6. Test empty state.
+7. Test error state.
+8. Test long text.
+9. Test realistic Indian currency values.
+10. Test dark/light system preference if supported.
+
+---
+
+# IMPLEMENTATION PRIORITY
+
+Build in this order:
+
+PHASE 1
+
+1. Design system
+2. App shell
+3. Authentication
+4. Guest mode
+5. Customer home
+6. Design Studio
+7. Design version system
+8. Costing panel
+9. Budget Optimizer
+
+PHASE 2
+
+10. My Designs
+11. Collections
+12. Marketplace
+13. Designer profiles
+14. Bidding
+15. Order creation
+
+PHASE 3
+
+16. Order tracking
+17. Escrow UI
+18. QC
+19. Fit window
+20. Messaging
+
+PHASE 4
+
+21. Designer dashboard
+22. Designer portfolio
+23. Designer Copilot
+24. Earnings
+25. Quality Score
+
+PHASE 5
+
+26. Ops console
+27. QC queue
+28. Designer verification
+29. Disputes
+30. Cost rules
+
+---
+
+# MOST IMPORTANT UX PRINCIPLE
+
+Do not design Zari as a collection of screens.
+
+Design it as one continuous journey:
+
+USER HAS AN IDEA
+
+↓
+
+ZARI UNDERSTANDS IT
+
+↓
+
+USER SEES BEAUTIFUL DESIGNS
+
+↓
+
+USER EDITS
+
+↓
+
+USER UNDERSTANDS THE PRICE
+
+↓
+
+USER ADJUSTS THE DESIGN TO FIT THE BUDGET
+
+↓
+
+USER FINDS A TRUSTED DESIGNER
+
+↓
+
+USER PAYS INTO ESCROW
+
+↓
+
+USER SEES PRODUCTION
+
+↓
+
+ZARI CHECKS QUALITY
+
+↓
+
+USER RECEIVES GARMENT
+
+↓
+
+USER CONFIRMS FIT
+
+The interface should constantly answer:
+
+**"What happens next?"**
+
+and
+
+**"What am I paying for?"**
+
+and
+
+**"Can I trust this?"**
+
+---
+
+# FINAL REQUIREMENT
+
+Do not stop after creating a landing page.
+
+Build the actual application shell and all primary frontend flows with realistic mock data.
+
+The Design Studio is the centerpiece.
+
+The final result should feel like a real startup product that could be handed to a backend engineer and connected to a production API without redesigning the frontend.
+
+Do not create a generic AI SaaS template.
+
+Build Zari as a premium Indian fashion marketplace and design operating system.
