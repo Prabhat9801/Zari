@@ -122,8 +122,17 @@ export interface QcCheckView {
   studioName: string;
   city: string;
   qualityScore: number | null;
-  /** Paise. The order total — a pass releases what is still held against it. */
+  /** Paise. The order total. Context only — a pass does NOT release this. */
   finalPrice: number;
+  /**
+   * Paise. What is actually held in escrow right now — the advance alone until
+   * the balance is captured. This, less the fee, is what a pass moves.
+   */
+  heldInEscrow: number;
+  /** Paise. Zari's cut, deducted from the held amount before the payout. */
+  platformFee: number;
+  /** Paise. `heldInEscrow` less `platformFee`. What the designer receives. */
+  payoutAmount: number;
   promisedLabel: string;
   waitingLabel: string;
   waitingDays: number;
@@ -161,6 +170,10 @@ interface ApiQcCheck {
     id: string;
     code: string;
     finalPrice: number;
+    platformFee?: number | null;
+    /** Paise. Only the queue sends this; the write endpoints return a bare check. */
+    heldInEscrow?: number | null;
+    releasableToDesigner?: number | null;
     promisedDate?: string | null;
     designer?: { studioName: string; city?: string | null; qualityScore?: number | null } | null;
     version?: { design?: { title: string } | null } | null;
@@ -179,6 +192,10 @@ const toItems = (rows: ApiQcItem[] | undefined): QcItemView[] =>
 
 const toCheck = (c: ApiQcCheck): QcCheckView => {
   const days = daysSince(c.createdAt);
+  const heldInEscrow = c.order?.heldInEscrow ?? 0;
+  const platformFee = c.order?.platformFee ?? 0;
+  // Mirrors payoutFor() in the backend: never negative, always net of the fee.
+  const payoutAmount = c.order?.releasableToDesigner ?? Math.max(0, heldInEscrow - platformFee);
   return {
     id: c.id,
     orderId: c.orderId,
@@ -191,6 +208,9 @@ const toCheck = (c: ApiQcCheck): QcCheckView => {
     city: c.order?.designer?.city ?? '',
     qualityScore: c.order?.designer?.qualityScore ?? null,
     finalPrice: c.order?.finalPrice ?? 0,
+    heldInEscrow,
+    platformFee,
+    payoutAmount,
     promisedLabel: dateLabel(c.order?.promisedDate),
     waitingLabel: days === 0 ? 'In the queue today' : `In the queue ${days} day${days === 1 ? '' : 's'}`,
     waitingDays: days,

@@ -31,6 +31,8 @@ export interface DesignerSummary {
   tone: Tone;
   /** First public portfolio piece, when the studio has uploaded one. */
   coverUrl?: string | null;
+  /** The studio's own words. Never invent a description on their behalf. */
+  bio?: string | null;
 }
 
 export interface PortfolioPiece {

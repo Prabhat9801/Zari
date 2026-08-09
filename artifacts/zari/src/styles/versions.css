@@ -1,0 +1,392 @@
+/* ---------------------------------------------------------------------------
+   Design version tree.
+
+   Its own stylesheet, imported by the component that uses it, so nothing here
+   competes with the stacked layers in index.css. Every selector is prefixed
+   .version- for the same reason — none of these names exist anywhere else.
+
+   The tokens are the shipped palette: deep teal primary, coral accent, cream
+   ground. Nothing new is introduced.
+   --------------------------------------------------------------------------- */
+
+.version-tree {
+  display: grid;
+  gap: 16px;
+}
+
+.version-tree-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.version-tree-head h3 {
+  margin: 9px 0 0;
+  font: 400 23px/1.15 var(--app-font-serif);
+}
+
+.version-reassure {
+  margin: 8px 0 0;
+  max-width: 46ch;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.version-controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.version-controls .button {
+  gap: 7px;
+}
+
+.version-controls .button small {
+  font-size: 10px;
+  opacity: .7;
+}
+
+.version-controls .button:disabled {
+  opacity: .42;
+  cursor: not-allowed;
+}
+
+.version-status {
+  margin: 0;
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: hsl(var(--secondary));
+  color: hsl(var(--foreground));
+  font-size: 11.5px;
+  line-height: 1.5;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* ---- the tree itself ---------------------------------------------------- */
+
+.version-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: block;
+}
+
+.version-row {
+  display: flex;
+  align-items: stretch;
+  padding-bottom: 10px;
+}
+
+.version-rail {
+  display: flex;
+  flex: none;
+}
+
+.version-rail-cell {
+  position: relative;
+  width: 22px;
+}
+
+/* A vertical line means an ancestor still has more branches below this row. */
+.version-rail-line::before,
+.version-rail-tee::before,
+.version-rail-end::before {
+  content: '';
+  position: absolute;
+  left: 11px;
+  top: 0;
+  width: 1px;
+  background: hsl(var(--border));
+}
+
+.version-rail-line::before,
+.version-rail-tee::before {
+  bottom: 0;
+}
+
+/* The last child stops the line where it turns into the node. */
+.version-rail-end::before {
+  height: 22px;
+}
+
+.version-rail-tee::after,
+.version-rail-end::after {
+  content: '';
+  position: absolute;
+  left: 11px;
+  top: 22px;
+  width: 11px;
+  height: 1px;
+  background: hsl(var(--border));
+}
+
+.version-node {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  text-align: left;
+  padding: 12px 14px;
+  border: 1px solid hsl(var(--card-border));
+  border-left: 3px solid hsl(var(--border));
+  border-radius: 10px;
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  font: 400 12px/1.5 var(--app-font-sans);
+  cursor: pointer;
+  transition: border-color .16s ease, background .16s ease, transform .16s ease;
+}
+
+.version-node:hover {
+  border-color: hsl(var(--primary) / .5);
+  transform: translateX(2px);
+}
+
+.version-node.current {
+  border-left-color: hsl(var(--primary));
+  background: hsl(var(--secondary));
+}
+
+.version-node.picked {
+  border-left-color: hsl(var(--accent));
+  border-style: dashed;
+}
+
+.version-node-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.version-number {
+  font: 500 12px var(--app-font-mono);
+  color: hsl(var(--primary));
+  letter-spacing: .06em;
+}
+
+.version-source {
+  font: 500 9px var(--app-font-mono);
+  letter-spacing: .14em;
+  color: hsl(var(--muted-foreground));
+}
+
+.version-made-by {
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+}
+
+.version-instruction {
+  font: italic 400 13px/1.5 var(--app-font-serif);
+  color: hsl(var(--foreground));
+}
+
+.version-summary {
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.version-node-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: baseline;
+  margin-top: 3px;
+  padding-top: 8px;
+  border-top: 1px solid hsl(var(--border) / .7);
+  font-size: 11px;
+}
+
+.version-node-foot .mono {
+  font-variant-numeric: tabular-nums;
+  color: hsl(var(--foreground));
+  font-weight: 500;
+}
+
+.version-branch-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  font: 500 10px/1.4 var(--app-font-mono);
+  letter-spacing: .04em;
+  color: hsl(var(--muted-foreground));
+}
+
+.version-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* ---- compare ------------------------------------------------------------ */
+
+.version-compare {
+  display: grid;
+  gap: 13px;
+  padding: 16px;
+  border: 1px solid hsl(var(--card-border));
+  border-radius: 12px;
+  background: hsl(var(--muted) / .55);
+}
+
+.version-compare-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.version-compare-head strong {
+  display: block;
+  margin-top: 6px;
+  font: 400 19px var(--app-font-serif);
+}
+
+.version-compare-estimates {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.version-compare-column {
+  display: grid;
+  gap: 6px;
+  padding: 11px 12px;
+  border-radius: 9px;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--card-border));
+}
+
+.version-compare-column strong {
+  font: 500 13px var(--app-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The direction is carried by the arrow, the sign and the word — never by
+   colour on its own. */
+.version-delta {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  font-size: 12px;
+  line-height: 1.5;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+}
+
+.version-delta b {
+  font: 500 13px var(--app-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.version-delta-up {
+  border-color: hsl(var(--accent) / .55);
+  background: hsl(16 52% 62% / .12);
+}
+
+.version-delta-down {
+  border-color: hsl(var(--primary) / .45);
+  background: hsl(173 36% 27% / .09);
+}
+
+.version-change-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1px;
+  background: hsl(var(--border));
+  border: 1px solid hsl(var(--border));
+  border-radius: 9px;
+  overflow: hidden;
+}
+
+.version-change {
+  display: grid;
+  grid-template-columns: minmax(96px, 1fr) minmax(0, 1.2fr) 16px minmax(0, 1.2fr);
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 12px;
+  background: hsl(var(--card));
+  font-size: 12px;
+}
+
+.version-change-name {
+  font: 500 10px var(--app-font-mono);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
+}
+
+.version-change-from {
+  color: hsl(var(--muted-foreground));
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+.version-change-arrow {
+  color: hsl(var(--muted-foreground));
+  text-align: center;
+}
+
+.version-change-to {
+  font-weight: 600;
+}
+
+.version-compare-loading,
+.version-compare-empty,
+.version-compare-foot {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+@media (max-width: 760px) {
+  .version-tree-head {
+    flex-direction: column;
+  }
+
+  .version-rail-cell {
+    width: 15px;
+  }
+
+  .version-rail-line::before,
+  .version-rail-tee::before,
+  .version-rail-end::before {
+    left: 7px;
+  }
+
+  .version-rail-tee::after,
+  .version-rail-end::after {
+    left: 7px;
+    width: 8px;
+  }
+
+  .version-compare-estimates {
+    grid-template-columns: 1fr;
+  }
+
+  .version-change {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .version-change-arrow {
+    text-align: left;
+  }
+}

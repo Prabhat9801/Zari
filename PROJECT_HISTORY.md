@@ -255,6 +255,40 @@ still open for someone to resolve a second time. The order is now reversed and
 the resolution is idempotent; a failed refund returns `refundError` and leaves a
 recorded resolution for ops to retry.
 
+### 2026-08-10 — Version tree, real budget optimizer, and an honesty audit
+The two features the brief calls distinctive are built: a real version tree
+(branching off `parentVersionId`, undo/redo, jump, compare with a price delta)
+and the full budget optimizer (per-substitution toggles, server-computed live
+totals, INFEASIBLE as a first-class state). Both replaced hardcoded panels in
+the studio that showed invented plans beside a live estimate.
+
+A read-only audit of the frontend then found a set of honesty defects worth
+recording, because each is the same mistake in a different place — showing
+something invented as though it were measured:
+
+- **The "Sample data" chip never appeared in the demo build.** `DemoNote` bailed
+  out when `VITE_API_URL` was unset, which is exactly the deployment where every
+  screen is sample content. It showed only in the narrow case where the URL was
+  set but the server was down.
+- **Fabricated per-designer statistics.** The marketplace card computed a "fit
+  success" percentage from array position, and the profile's "Quality Score,
+  made legible" panel showed three constants as that studio's measured
+  breakdown. Both now render from `GET /api/marketplace/scoring`, the same
+  endpoint the marketplace ranks with.
+- **The order page's entire money panel was hardcoded** — a fixed ₹6,400, a
+  fixed 40/60 split and a fixed timeline, rendered on top of a live order's
+  title and designer, so a real order showed someone else's price. The endpoint
+  that supplies all of it was already written and had no caller.
+- **The concepts screen invented a fallback price** for a concept with no
+  estimate. It now says "Not priced yet".
+- **`tone` had recurred** on `.maker-art` and `.journey-art` — attributes no CSS
+  rule reads.
+
+Also fixed from the ops build: a QC pass on an order with nothing held in escrow
+recorded the pass, notified both parties, and then returned a 409 to the
+reviewer. Nothing held is a legitimate state, not a failure — `releaseEscrow`
+now returns null instead of throwing.
+
 ### 2026-08-10 — Landing page rebuilt around the product's actual argument
 Added the five-step journey strip, an itemised estimate section, a budget
 optimizer section naming what each substitution costs, and an escrow strip

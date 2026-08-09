@@ -464,7 +464,12 @@ export const mockQcQueue: QcCheckView[] = [
     studioName: 'Aanya Studio',
     city: 'Bengaluru',
     qualityScore: 94,
+    // The 40% advance is captured; the balance is not due until QC passes, so
+    // that advance less Zari's 10% is all a pass actually moves.
     finalPrice: 640_000,
+    heldInEscrow: 256_000,
+    platformFee: 64_000,
+    payoutAmount: 192_000,
     promisedLabel: '28 Nov',
     waitingLabel: 'In the queue 2 days',
     waitingDays: 2,
@@ -492,6 +497,9 @@ export const mockQcQueue: QcCheckView[] = [
     city: 'Mumbai',
     qualityScore: 91,
     finalPrice: 710_000,
+    heldInEscrow: 284_000,
+    platformFee: 71_000,
+    payoutAmount: 213_000,
     promisedLabel: '04 Dec',
     waitingLabel: 'In the queue today',
     waitingDays: 0,
@@ -518,7 +526,13 @@ export const mockQcQueue: QcCheckView[] = [
     studioName: 'Rekha & Thread',
     city: 'Jaipur',
     qualityScore: 89,
+    // Deliberately unfunded: the advance was never captured, so a pass on this
+    // round has no money to release. The screen has to say so rather than
+    // quoting a figure.
     finalPrice: 424_000,
+    heldInEscrow: 0,
+    platformFee: 42_400,
+    payoutAmount: 0,
     promisedLabel: '30 Nov',
     waitingLabel: 'In the queue 4 days',
     waitingDays: 4,
@@ -705,5 +719,85 @@ export const mockCostRules: CostRuleView[] = [
     notes: 'Retired while the metal price settles.',
     rangeLabel: '₹880–₹1,300 per m',
     scopeLabel: 'Applies everywhere',
+  },
+];
+
+/**
+ * Budget optimizer runs.
+ *
+ * The newest run is a reachable target so the panel has something to show; the
+ * older one is deliberately INFEASIBLE, because that state is a first-class
+ * outcome of this feature and not an error — a demo that never shows it is
+ * hiding the most honest thing the optimizer does.
+ *
+ * Every figure is paise. ₹7,400–₹8,400 is the lavender lehenga's estimate.
+ */
+export const mockBudgetRuns: import('@/services/budget').BudgetRun[] = [
+  {
+    id: 'run-lavender-5000',
+    targetAmount: 500_000,
+    currentMin: 740_000,
+    currentMax: 840_000,
+    status: 'READY',
+    infeasibleReason: null,
+    alternatives: [],
+    plans: [
+      {
+        id: 'plan-balance',
+        label: 'Best balance',
+        similarityPercent: 94,
+        resultingMin: 410_000,
+        resultingMax: 510_000,
+        savings: 330_000,
+        rationale: 'Keeps the silhouette and the embroidery layout, and moves the money out of the base cloth and the metal thread.',
+        substitutions: [
+          { id: 'sub-balance-fabric', component: 'FABRIC', fromValue: 'Chanderi silk', toValue: 'Silk-blend satin', costDelta: -120_000, visualImpact: 'Slightly less texture in daylight; the drape is very close.', similarityDelta: 3, isSelected: true, isOptional: true },
+          { id: 'sub-balance-zari', component: 'TRIMS', fromValue: 'Gold zari border', toValue: 'Tonal resham border', costDelta: -90_000, visualImpact: 'Reads quieter up close, near-identical from across a room.', similarityDelta: 2, isSelected: true, isOptional: true },
+          { id: 'sub-balance-embroidery', component: 'EMBROIDERY', fromValue: 'Dense resham embroidery', toValue: 'Medium density', costDelta: -120_000, visualImpact: 'Open space between the motifs; the layout is unchanged.', similarityDelta: 1, isSelected: true, isOptional: true },
+        ],
+      },
+      {
+        id: 'plan-craft',
+        label: 'Keep the craft',
+        similarityPercent: 97,
+        resultingMin: 515_000,
+        resultingMax: 615_000,
+        savings: 225_000,
+        rationale: 'Protects the chanderi and the hand embroidery, and takes the saving from the parts nobody sees.',
+        substitutions: [
+          { id: 'sub-craft-lining', component: 'LINING', fromValue: 'Cotton cambric lining', toValue: 'Cotton mull lining', costDelta: -35_000, visualImpact: 'The inner layer sits a little lighter; nothing changes from outside.', similarityDelta: 1, isSelected: true, isOptional: true },
+          { id: 'sub-craft-pearls', component: 'TRIMS', fromValue: 'Pearl-work dupatta border', toValue: 'Resham scallop border', costDelta: -105_000, visualImpact: 'The border loses its catch of light; the scallop shape stays.', similarityDelta: 1, isSelected: true, isOptional: true },
+          { id: 'sub-craft-hem', component: 'FINISHING', fromValue: 'Fully hand-finished hem', toValue: 'Machine hem with hand tacking', costDelta: -85_000, visualImpact: 'Visible only at the hem edge, and only from close up.', similarityDelta: 1, isSelected: true, isOptional: true },
+        ],
+      },
+      {
+        id: 'plan-reach',
+        label: 'Reach the target',
+        similarityPercent: 88,
+        resultingMin: 400_000,
+        resultingMax: 500_000,
+        savings: 340_000,
+        rationale: 'The most direct route to ₹5,000. The base cloth has to change for this one to work.',
+        substitutions: [
+          { id: 'sub-reach-fabric', component: 'FABRIC', fromValue: 'Chanderi silk', toValue: 'Chanderi-look poly blend', costDelta: -160_000, visualImpact: 'Less depth in the weave; it photographs close but feels different in hand.', similarityDelta: 6, isSelected: true, isOptional: false },
+          { id: 'sub-reach-embroidery', component: 'EMBROIDERY', fromValue: 'Dense resham embroidery', toValue: 'Light placement embroidery', costDelta: -140_000, visualImpact: 'Motifs sit on the panels and the border only; the mid-skirt is plain.', similarityDelta: 5, isSelected: true, isOptional: true },
+          { id: 'sub-reach-zari', component: 'TRIMS', fromValue: 'Gold zari border', toValue: 'Tonal resham border', costDelta: -40_000, visualImpact: 'Reads quieter up close, near-identical from across a room.', similarityDelta: 1, isSelected: true, isOptional: true },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'run-lavender-3000',
+    targetAmount: 300_000,
+    currentMin: 740_000,
+    currentMax: 840_000,
+    status: 'INFEASIBLE',
+    infeasibleReason: 'The chanderi alone is ₹3,150 for the 4.5 metres this silhouette needs, before any lining, stitching or finishing. Below roughly ₹4,600 the lehenga has to change construction, not just materials.',
+    alternatives: [
+      'Set the target at ₹4,600 and keep this construction — every substitution stays optional.',
+      'Move the base to a lighter georgette. The fall changes, and it reaches about ₹3,400.',
+      'Keep the lehenga as designed and order the dupatta separately later.',
+    ],
+    plans: [],
   },
 ];

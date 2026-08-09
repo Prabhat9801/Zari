@@ -71,6 +71,21 @@ export function useDesignerProfile(slugOrId: string | undefined) {
 
 export const useOrders = () => useApiData(['orders'], ordersService.list, mockOrders);
 
+/**
+ * One order in full — the real amounts, milestones, escrow state and fit window.
+ *
+ * The order page used to render a hardcoded ₹6,400 and a fixed timeline on top
+ * of a live order's title and designer, so a real order showed someone else's
+ * price. This endpoint was written and had no caller.
+ */
+export const useOrder = (orderId: string | undefined) =>
+  useApiData(
+    ['order', orderId],
+    () => ordersService.get(orderId!),
+    null as Awaited<ReturnType<typeof ordersService.get>> | null,
+    { enabled: Boolean(orderId), fallbackOnEmpty: false },
+  );
+
 /** Brief -> concepts. Returns the created design ids so the caller can navigate. */
 export function useGenerateDesign() {
   const queryClient = useQueryClient();

@@ -52,6 +52,7 @@ const toSummary = (d: ApiDesigner): DesignerSummary => ({
   city: d.city,
   score: String(d.qualityScore),
   coverUrl: firstPortfolioImage(d),
+  bio: d.bio ?? null,
   // A studio's floor price is a real number; when it has none, say so rather
   // than inventing one — the product never shows a fake price.
   bid: d.minOrderValue ? `From ${formatINR(d.minOrderValue)}` : 'Quote on request',

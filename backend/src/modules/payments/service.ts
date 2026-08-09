@@ -22,11 +22,23 @@ import { auditLog, notify, postSystemMessage } from '../../services/notification
  * the QC pass path. There is deliberately no admin "just pay them" shortcut.
  */
 
-const heldTotal = (entries: { direction: string; state: string; amount: number }[]): number =>
+/**
+ * What is actually sitting in escrow right now: HELD entries only, credits less
+ * debits. Not the order total — the balance may not have been captured yet, and
+ * released or refunded money has left the HELD state.
+ *
+ * Exported because the QC queue has to state the same number to the reviewer
+ * that releaseEscrow() will act on. There must be exactly one definition of it.
+ */
+export const heldTotal = (entries: { direction: string; state: string; amount: number }[]): number =>
   entries.reduce((sum, e) => {
     if (e.state !== 'HELD') return sum;
     return e.direction === 'CREDIT' ? sum + e.amount : sum - e.amount;
   }, 0);
+
+/** What a QC pass would actually pay the designer: held, less the platform fee. */
+export const payoutFor = (held: number, platformFee: number): number =>
+  Math.max(0, held - platformFee);
 
 export const paymentService = {
   /** Creates a provider order for the advance or the balance. */
@@ -203,9 +215,18 @@ export const paymentService = {
     if (!order) throw notFound('That order');
 
     const held = heldTotal(order.ledgerEntries);
-    if (held <= 0) throw conflict('There is nothing held in escrow for this order.');
 
-    const payoutAmount = Math.max(0, held - order.platformFee);
+    // Nothing held is a legitimate state, not a failure: an order can pass QC
+    // before any payment was captured. This used to throw, which meant the QC
+    // decision committed and notified both parties and THEN handed the reviewer
+    // a 409 — an error for something that had already succeeded. There is simply
+    // no money to move.
+    if (held <= 0) {
+      logger.info({ orderId }, 'QC passed with nothing held in escrow; no payout to make');
+      return null;
+    }
+
+    const payoutAmount = payoutFor(held, order.platformFee);
 
     const payout = await prisma.$transaction(async (tx) => {
       await tx.ledgerEntry.create({

@@ -10,7 +10,7 @@ import { cursorArgs, toPage } from '../../lib/http.js';
 import { aiClient, type DesignSpec } from '../../services/aiClient.js';
 import { auditLog, notify } from '../../services/notifications.js';
 import { recomputeQualityScore } from '../../services/qualityScore.js';
-import { paymentService } from '../payments/service.js';
+import { heldTotal, paymentService, payoutFor } from '../payments/service.js';
 import { logger } from '../../lib/logger.js';
 
 const router: Router = Router();
@@ -93,7 +93,14 @@ router.get(
 
 router.use(requireRole('OPS', 'ADMIN'));
 
-/** /ops/qc — the review queue. */
+/**
+ * /ops/qc — the review queue.
+ *
+ * The reviewer is told what a pass actually moves, not what the order is worth.
+ * `heldInEscrow` is only the HELD ledger entries — the advance alone if the
+ * balance has not been captured — and the payout is that less `platformFee`.
+ * `finalPrice` stays as context. See paymentService.releaseEscrow().
+ */
 router.get(
   '/queue',
   validate(queueSchema, 'query'),
@@ -110,14 +117,30 @@ router.get(
             id: true,
             code: true,
             finalPrice: true,
+            platformFee: true,
             promisedDate: true,
+            ledgerEntries: { select: { direction: true, state: true, amount: true } },
             designer: { select: { studioName: true, city: true, qualityScore: true } },
             version: { select: { spec: true, design: { select: { title: true } } } },
           },
         },
       },
     });
-    return ok(res, toPage(rows, query.limit));
+
+    const items = rows.map(({ order, ...check }) => {
+      const { ledgerEntries, ...rest } = order;
+      const heldInEscrow = heldTotal(ledgerEntries);
+      return {
+        ...check,
+        order: {
+          ...rest,
+          heldInEscrow,
+          releasableToDesigner: payoutFor(heldInEscrow, order.platformFee),
+        },
+      };
+    });
+
+    return ok(res, toPage(items, query.limit));
   }),
 );
 

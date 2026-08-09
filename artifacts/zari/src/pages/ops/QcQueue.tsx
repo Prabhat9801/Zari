@@ -27,9 +27,14 @@ import {
  * The quality control queue.
  *
  * This is the most consequential screen in the product: passing all five
- * criteria is the one and only thing that releases the escrow balance to a
- * designer. The screen is built so that fact is impossible to miss — stated
- * before the decision, restated in the confirmation, and never abbreviated.
+ * criteria is the one and only thing that releases escrow to a designer. The
+ * screen is built so that fact is impossible to miss — stated before the
+ * decision, restated in the confirmation, and never abbreviated.
+ *
+ * The figure named here is the payout, not the order total. A pass releases
+ * what is HELD in escrow right now — the advance alone until the balance is
+ * captured — less Zari's platform fee. Quoting `finalPrice` would promise the
+ * designer money they will not receive. See releaseEscrow() in the backend.
  */
 
 type DecisionMap = Record<QcCriterion, { passed: boolean | null; note: string }>;
@@ -111,6 +116,8 @@ export default function OpsQcQueuePage() {
   };
 
   const reviewable = check?.status === 'IN_REVIEW';
+  /** No captured payment means a pass moves nothing, and we must not imply otherwise. */
+  const nothingHeld = !check || check.heldInEscrow <= 0;
   const allMarked = QC_CRITERIA.every((c) => decisions[c].passed !== null);
   const willPass = allMarked && QC_CRITERIA.every((c) => decisions[c].passed === true);
   const failedList = QC_CRITERIA.filter((c) => decisions[c].passed === false);
@@ -196,9 +203,11 @@ export default function OpsQcQueuePage() {
           setConfirm(null);
           setToast({
             message:
-              result.status === 'PASSED'
-                ? `${check.orderCode} passed. The escrow balance is released to ${check.studioName}.`
-                : `${check.orderCode} is marked for correction. ${check.studioName} has been told what to fix.`,
+              result.status !== 'PASSED'
+                ? `${check.orderCode} is marked for correction. ${check.studioName} has been told what to fix.`
+                : nothingHeld
+                  ? `${check.orderCode} passed. Nothing was held in escrow, so no money moved.`
+                  : `${check.orderCode} passed. ${formatINR(check.payoutAmount)} is released to ${check.studioName}.`,
           });
         },
         onError: (error) =>
@@ -218,8 +227,8 @@ export default function OpsQcQueuePage() {
           </div>
           <h1>The garment against the promise.</h1>
           <p>
-            Five criteria, checked by a person. A pass releases the escrow balance to the designer —
-            it is the only thing in Zari that does.
+            Five criteria, checked by a person. A pass releases what is held in escrow to the
+            designer, less the Zari fee — it is the only thing in Zari that does.
           </p>
         </div>
       </div>
@@ -259,7 +268,9 @@ export default function OpsQcQueuePage() {
                   <p style={{ margin: '12px 0 8px' }}>{item.designTitle}</p>
                   <div className="cost-row" style={{ padding: 0 }}>
                     <span className="muted">{item.waitingLabel}</span>
-                    <span className="mono">{formatINR(item.finalPrice)}</span>
+                    <span className="mono">
+                      {item.heldInEscrow > 0 ? `${formatINR(item.heldInEscrow)} held` : 'Nothing held'}
+                    </span>
                   </div>
                 </button>
               ))}
@@ -306,14 +317,35 @@ export default function OpsQcQueuePage() {
                 <div className="eyebrow" style={{ color: 'hsl(39 42% 86%)' }}>
                   What a pass does
                 </div>
-                <h3>It releases the money.</h3>
-                <p>
-                  Passing all five criteria releases the escrow balance held against{' '}
-                  {check.orderCode || 'this order'} to {check.studioName}. It is the only action in
-                  Zari that moves that money, and it cannot be taken back from this console.
-                </p>
+                <h3>{nothingHeld ? 'There is no money to release.' : 'It releases the money.'}</h3>
+                {nothingHeld ? (
+                  <p>
+                    Nothing is held in escrow against {check.orderCode || 'this order'}, so a pass
+                    moves no money to {check.studioName}. The round still closes and the customer is
+                    told it passed.
+                  </p>
+                ) : (
+                  <p>
+                    Passing all five criteria releases what Zari holds in escrow against{' '}
+                    {check.orderCode || 'this order'} to {check.studioName}, less the Zari fee. It is
+                    the only action in Zari that moves that money, and it cannot be taken back from
+                    this console.
+                  </p>
+                )}
                 <div className="escrow-row">
-                  <span>Order total in escrow</span>
+                  <span>Held in escrow now</span>
+                  <strong>{nothingHeld ? 'Nothing held' : formatINR(check.heldInEscrow)}</strong>
+                </div>
+                <div className="escrow-row">
+                  <span>Zari fee</span>
+                  <strong>{nothingHeld ? '—' : `− ${formatINR(check.platformFee)}`}</strong>
+                </div>
+                <div className="escrow-row">
+                  <span>Releases to {check.studioName}</span>
+                  <strong>{nothingHeld ? 'No payment' : formatINR(check.payoutAmount)}</strong>
+                </div>
+                <div className="escrow-row">
+                  <span>Order total, for context</span>
                   <strong>{formatINR(check.finalPrice)}</strong>
                 </div>
                 <div className="escrow-row">
@@ -557,18 +589,22 @@ export default function OpsQcQueuePage() {
                     <>
                       <div className="cost-total">
                         <span className="muted" style={{ fontSize: 11 }}>
-                          {allMarked
-                            ? willPass
-                              ? 'All five pass'
-                              : `${failedList.length} of five need correction`
-                            : 'Mark all five to decide'}
+                          {!allMarked
+                            ? 'Mark all five to decide'
+                            : !willPass
+                              ? `${failedList.length} of five need correction`
+                              : nothingHeld
+                                ? 'All five pass · nothing held'
+                                : `All five pass · releases to ${check.studioName}`}
                         </span>
                         <strong style={{ font: '400 22px var(--app-font-serif)' }}>
-                          {allMarked
-                            ? willPass
-                              ? formatINR(check.finalPrice)
-                              : 'No money moves'
-                            : '—'}
+                          {!allMarked
+                            ? '—'
+                            : !willPass
+                              ? 'No money moves'
+                              : nothingHeld
+                                ? 'No payment'
+                                : formatINR(check.payoutAmount)}
                         </strong>
                       </div>
                       <OpsButton
@@ -578,7 +614,9 @@ export default function OpsQcQueuePage() {
                         testId="button-qc-record-decision"
                       >
                         {willPass
-                          ? 'Pass and release the balance'
+                          ? nothingHeld
+                            ? 'Pass this round'
+                            : 'Pass and release the payout'
                           : allMarked
                             ? 'Fail and request a correction'
                             : 'Record the decision'}{' '}
@@ -592,14 +630,18 @@ export default function OpsQcQueuePage() {
                       data-testid="card-qc-confirm"
                     >
                       <strong style={{ display: 'block', marginBottom: 6 }}>
-                        {confirm === 'pass'
-                          ? `Release ${formatINR(check.finalPrice)} worth of escrow to ${check.studioName}?`
-                          : `Send ${check.orderCode} back to ${check.studioName} for correction?`}
+                        {confirm !== 'pass'
+                          ? `Send ${check.orderCode} back to ${check.studioName} for correction?`
+                          : nothingHeld
+                            ? `Pass ${check.orderCode} with nothing held in escrow?`
+                            : `Release ${formatINR(check.payoutAmount)} to ${check.studioName} — ${formatINR(check.heldInEscrow)} held, less ${formatINR(check.platformFee)} Zari fee.`}
                       </strong>
                       <span style={{ display: 'block', marginBottom: 12, lineHeight: 1.5 }}>
-                        {confirm === 'pass'
-                          ? 'The balance held against this order moves to the designer, the customer is told it passed, and this round closes. There is no way to reverse it here.'
-                          : `${failedList.length} criteri${failedList.length === 1 ? 'on' : 'a'} will be sent back with your notes. The money stays held.`}
+                        {confirm !== 'pass'
+                          ? `${failedList.length} criteri${failedList.length === 1 ? 'on' : 'a'} will be sent back with your notes. The money stays held.`
+                          : nothingHeld
+                            ? 'No payment has been captured against this order, so a pass releases nothing. The customer is told it passed and this round closes.'
+                            : 'That payout goes to the designer, the customer is told it passed, and this round closes. There is no way to reverse it here.'}
                       </span>
                       <div className="studio-actions">
                         <OpsButton
@@ -620,7 +662,11 @@ export default function OpsQcQueuePage() {
                               <Loader2 size={14} className="spin" /> Recording…
                             </>
                           ) : confirm === 'pass' ? (
-                            'Yes, release the balance'
+                            nothingHeld ? (
+                              'Yes, record the pass'
+                            ) : (
+                              'Yes, release the payout'
+                            )
                           ) : (
                             'Yes, request the correction'
                           )}
