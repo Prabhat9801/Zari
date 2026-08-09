@@ -25,7 +25,16 @@ Frontend ([artifacts/zari/](artifacts/zari/)) abhi API se wired nahi hai — [St
    | Chahiye | Kaunsa | Port | Kyun |
    |---|---|---|---|
    | `DATABASE_URL` | **Transaction pooler** | `6543` | Chalti hui app iska use karti hai |
-   | `DIRECT_URL` | **Direct connection** | `5432` | Migrations sirf isse chalti hain — pooler se nahi |
+   | `DIRECT_URL` | **Session pooler** | `5432` | Migrations sirf isse chalti hain |
+
+   > ⚠️ **"Direct connection" mat chuno.** Supabase ka direct host
+   > (`db.<ref>.supabase.co:5432`) naye projects pe **IPv6-only** hai. Render ka egress
+   > IPv4 hai, to deploy pe migrations `P1001: Can't reach database server` de kar fail
+   > hongi. Aapke laptop se chal jaayega (ghar pe IPv6 hai) aur Render pe tootega.
+   > **Session pooler** (`aws-0-<region>.pooler.supabase.com:5432`) IPv4 pe hai aur
+   > migrations support karta hai — wahi use karo.
+   >
+   > Dono pooler URLs me username `postgres.<project-ref>` hota hai, sirf `postgres` nahi.
 
    `DATABASE_URL` ke end me ye add karna hai:
    ```
@@ -275,7 +284,8 @@ CORS_ORIGINS = https://zari.onrender.com
 | Build: "no Dockerfile found" | **Root Directory** khaali chhoda | `backend` ya `ai-service` set karo |
 | Boot pe crash, "Invalid environment configuration" | Koi required env var missing hai | Logs me exact variable ka naam likha hoga |
 | `database: false` | Password me `@` / `#` encode nahi kiya | `%40` / `%23` karo |
-| Migrations fail, "prepared statement" error | `DIRECT_URL` me pooler ka URL daal diya | `DIRECT_URL` port `5432` wala hona chahiye |
+| Migrations fail, `P1001: Can't reach database server` | `DIRECT_URL` me **direct connection** (`db.<ref>.supabase.co`) daal diya — wo IPv6-only hai, Render IPv4 hai | **Session pooler** use karo: `aws-0-<region>.pooler.supabase.com:5432`, username `postgres.<ref>` |
+| Migrations fail, "prepared statement" error | `DIRECT_URL` me transaction pooler (6543) daal diya | Session pooler port `5432` hona chahiye |
 | Har generation 502 deti hai | Token mismatch | `SERVICE_TOKEN` aur `AI_SERVICE_TOKEN` byte-for-byte same karo |
 | AI service 429 `insufficient_quota` deta hai | OpenAI credits khatam | platform.openai.com → Billing → credits add karo |
 | `/bin/sh^M: bad interpreter` | Entrypoint CRLF me commit hua | `.gitattributes` isko rokta hai — repo se ho to `git add --renormalize .` |

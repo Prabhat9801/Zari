@@ -136,9 +136,14 @@ render.yaml docker-compose.yml DEPLOYMENT.md ZARI_SYSTEM_PROMPT.txt
 
 **Backend**
 
-- **Two database URLs, and they are not interchangeable.** `DATABASE_URL` is the Supabase *pooled*
-  connection (port 6543, needs `?pgbouncer=true&connection_limit=1`); `DIRECT_URL` is the *direct*
-  one (port 5432). Migrations cannot run through pgbouncer.
+- **Two database URLs, and they are not interchangeable.** `DATABASE_URL` is Supabase's
+  *transaction* pooler (port 6543, needs `?pgbouncer=true&connection_limit=1`); `DIRECT_URL` is the
+  *session* pooler (port 5432). Migrations cannot run through the transaction pooler.
+- **Do not use Supabase's "Direct connection" host for `DIRECT_URL`.** `db.<ref>.supabase.co:5432`
+  is IPv6-only on new projects and Render's egress is IPv4, so migrations fail there with
+  `P1001: Can't reach database server` — while working fine from a laptop that has IPv6. The
+  session pooler (`aws-0-<region>.pooler.supabase.com:5432`) is IPv4 and supports migrations. Both
+  pooler URLs use the username `postgres.<project-ref>`, not `postgres`.
 - **`backend/prisma/migrations/` must be committed.** Production runs `prisma migrate deploy`, which
   only *applies* migrations and never creates them. Run `npx prisma migrate dev --name init` once.
 - **The Razorpay webhook is mounted before `express.json()`** in `app.ts`. Its HMAC is computed over
