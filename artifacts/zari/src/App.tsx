@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ArrowRight, ArrowUpRight, Bell, Camera, Check, ChevronRight, Copy, Eye, ImagePlus, LayoutGrid, Link as LinkIcon, Loader2, LockKeyhole, MapPin, MessageCircle, MoreHorizontal, Palette, Pencil, Plus, Save, Search, Send, Settings, ShieldCheck, Shirt, Sparkles, Star, Trash2, Upload, UserRound, UsersRound, WalletCards } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { Link, Route, Switch, Router as WouterRouter, useLocation, useParams } from 'wouter';
 import NotFound from '@/pages/not-found';
 import { ThreadScene } from '@/components/ThreadScene';
@@ -16,7 +16,30 @@ import { mockDesignerProfiles } from '@/data/mock';
 
 const queryClient = new QueryClient();
 
+/**
+ * The designer workspace is its own section of the product and a customer never
+ * opens it, so it is split out of the main bundle rather than shipped to
+ * everyone who lands on the marketing page.
+ */
+const DesignerDashboard = lazy(() => import('@/pages/designer/Dashboard'));
+const DesignerBids = lazy(() => import('@/pages/designer/Bids'));
+const DesignerCopilot = lazy(() => import('@/pages/designer/Copilot'));
+const DesignerEarnings = lazy(() => import('@/pages/designer/Earnings'));
+const DesignerQuality = lazy(() => import('@/pages/designer/Quality'));
+
+/** Ops is internal tooling — split out for the same reason as the designer section. */
+const OpsOverview = lazy(() => import('@/pages/ops/Overview'));
+const OpsQcQueue = lazy(() => import('@/pages/ops/QcQueue'));
+const OpsDesigners = lazy(() => import('@/pages/ops/Designers'));
+const OpsDisputes = lazy(() => import('@/pages/ops/Disputes'));
+const OpsCostRules = lazy(() => import('@/pages/ops/CostRules'));
+
 type ToastState = { message: string } | null;
+
+/** Shown while a split-out section is fetched. Deliberately quiet. */
+function SectionLoading() {
+  return <div className="section-loading" role="status" aria-live="polite"><Loader2 size={18} className="spin" /><span>Opening your workspace…</span></div>;
+}
 
 function Brand({ dark = false }: { dark?: boolean }) {
   return <Link href="/" className="brand" data-testid="link-brand"><span className="brand-mark"><span>Z</span></span><span>Zari</span></Link>;
@@ -355,12 +378,14 @@ function AuthPage({ signup = false }: { signup?: boolean }) {
 }
 
 function Router() {
-  return <Switch><Route path="/" component={Landing} /><Route path="/app" component={Home} /><Route path="/app/studio" component={StudioStart} /><Route path="/app/studio/concepts" component={Concepts} /><Route path="/app/studio/:designId" component={StudioWorkspace} /><Route path="/app/designs" component={DesignsPage} /><Route path="/app/marketplace" component={Marketplace} /><Route path="/marketplace" component={Marketplace} /><Route path="/designers/:designerId" component={DesignerProfile} /><Route path="/designer/profile" component={DesignerProfileBuilder} /><Route path="/app/orders" component={Orders} /><Route path="/orders" component={Orders} /><Route path="/app/orders/:orderId" component={OrderDetail} /><Route path="/orders/:orderId" component={OrderDetail} /><Route path="/login" component={() => <AuthPage />} /><Route path="/signup" component={() => <AuthPage signup />} /><Route component={NotFound} /></Switch>;
+  // /designer/profile is declared before /designer/:rest-style routes so the
+  // existing studio builder keeps its path.
+  return <Switch><Route path="/designer/profile" component={DesignerProfileBuilder} /><Route path="/designer" component={DesignerDashboard} /><Route path="/designer/bids" component={DesignerBids} /><Route path="/designer/copilot" component={DesignerCopilot} /><Route path="/designer/earnings" component={DesignerEarnings} /><Route path="/designer/quality" component={DesignerQuality} /><Route path="/ops" component={OpsOverview} /><Route path="/ops/qc" component={OpsQcQueue} /><Route path="/ops/designers" component={OpsDesigners} /><Route path="/ops/disputes" component={OpsDisputes} /><Route path="/ops/cost-rules" component={OpsCostRules} /><Route path="/" component={Landing} /><Route path="/app" component={Home} /><Route path="/app/studio" component={StudioStart} /><Route path="/app/studio/concepts" component={Concepts} /><Route path="/app/studio/:designId" component={StudioWorkspace} /><Route path="/app/designs" component={DesignsPage} /><Route path="/app/marketplace" component={Marketplace} /><Route path="/marketplace" component={Marketplace} /><Route path="/designers/:designerId" component={DesignerProfile} /><Route path="/app/orders" component={Orders} /><Route path="/orders" component={Orders} /><Route path="/app/orders/:orderId" component={OrderDetail} /><Route path="/orders/:orderId" component={OrderDetail} /><Route path="/login" component={() => <AuthPage />} /><Route path="/signup" component={() => <AuthPage signup />} /><Route component={NotFound} /></Switch>;
 }
 
 function App() {
   useGuestBootstrap();
-  return <QueryClientProvider client={queryClient}><TooltipProvider><WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}><Router /></WouterRouter><Toaster /></TooltipProvider></QueryClientProvider>;
+  return <QueryClientProvider client={queryClient}><TooltipProvider><WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}><Suspense fallback={<SectionLoading />}><Router /></Suspense></WouterRouter><Toaster /></TooltipProvider></QueryClientProvider>;
 }
 
 export default App;

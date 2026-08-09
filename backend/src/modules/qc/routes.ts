@@ -244,6 +244,11 @@ router.post(
         },
       });
 
+      // A pass deliberately leaves the order at QC_PENDING: the garment has
+      // cleared inspection but has NOT shipped, and there is no QC_PASSED in
+      // OrderStatus. The pass lives on the QualityCheck row, which is what
+      // markShipped() gates on before it will dispatch. The status name reads
+      // worse than the behaviour is — see PROJECT_HISTORY.md.
       await tx.order.update({
         where: { id: check.orderId },
         data: { status: status === 'PASSED' ? 'QC_PENDING' : 'QC_FAILED' },

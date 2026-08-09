@@ -4,7 +4,8 @@ import { prisma } from '../../lib/prisma.js';
 import { asyncHandler, param, created, cursorArgs, noContent, ok, toPage } from '../../lib/http.js';
 import { validate } from '../../middleware/validate.js';
 import { requireAuth, requireRole } from '../../middleware/auth.js';
-import { notFound } from '../../lib/errors.js';
+import { conflict, notFound } from '../../lib/errors.js';
+import { logger } from '../../lib/logger.js';
 import { auditLog, notify } from '../../services/notifications.js';
 import { recomputeQualityScore } from '../../services/qualityScore.js';
 import { paymentService } from '../payments/service.js';
@@ -252,16 +253,16 @@ router.post(
       include: { order: { select: { id: true, customerId: true, code: true } } },
     });
     if (!dispute) throw notFound('That dispute');
+    if (dispute.resolvedAt) throw conflict('This dispute has already been resolved.');
 
-    if (body.refundAmount && body.refundAmount > 0) {
-      await paymentService.refund(
-        dispute.orderId,
-        body.refundAmount,
-        body.resolutionNote,
-        req.user!.id,
-      );
-    }
-
+    // Record the resolution FIRST, then move the money.
+    //
+    // The refund calls Razorpay, so it cannot join the transaction. Doing it
+    // first meant a refund could succeed while the write that records it failed
+    // — money out of the account with nothing saying why, and a dispute still
+    // open for someone to resolve a second time. This order is recoverable: a
+    // failed refund leaves a resolution ops can retry, which is far better than
+    // an unexplained payment.
     const resolved = await prisma.$transaction(async (tx) => {
       const updated = await tx.dispute.update({
         where: { id: dispute.id },
@@ -298,7 +299,28 @@ router.post(
       return updated;
     });
 
-    return ok(res, resolved);
+    // Now move the money. A failure here leaves the resolution recorded and
+    // reported, so ops can retry the refund rather than reconstruct what was
+    // decided.
+    let refundError: string | null = null;
+    if (body.refundAmount && body.refundAmount > 0) {
+      try {
+        await paymentService.refund(
+          dispute.orderId,
+          body.refundAmount,
+          body.resolutionNote,
+          req.user!.id,
+        );
+      } catch (err) {
+        refundError = err instanceof Error ? err.message : 'The refund could not be processed.';
+        logger.error(
+          { err, disputeId: dispute.id, amount: body.refundAmount },
+          'Dispute resolved but the refund failed — retry required',
+        );
+      }
+    }
+
+    return ok(res, { ...resolved, refundError });
   }),
 );
 

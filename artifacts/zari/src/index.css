@@ -1212,3 +1212,14 @@ body {
 @media (max-width: 900px) {
   .hero-price { position: static; max-width: none; margin-top: 16px; }
 }
+
+/* Shown while a code-split section (designer, ops) is fetched. */
+.section-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  min-height: 60dvh;
+  color: hsl(var(--muted-foreground));
+  font-size: 13px;
+}

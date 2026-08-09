@@ -170,6 +170,32 @@ and the concepts return without imagery, which is the correct trade.
 
 ---
 
+## Backend warts worth knowing before you touch these paths
+
+Found while building the ops console against the real routes.
+
+- **`POST /api/qc/start` takes an `orderId`, not a check id, and always opens a
+  NEW round** (`round = last + 1`). Starting a `NOT_STARTED` queue row does not
+  transition it — it leaves it orphaned and inserts round N+1.
+- **`GET /api/qc/queue` omits the check's `items`.** The five criteria rows only
+  come back from `/start`, `/photos` or `/decide`, so the queue screen
+  synthesises them client-side.
+- **A QC pass leaves the order at `QC_PENDING`.** There is no `QC_PASSED` in
+  `OrderStatus`, and the pass lives on the QualityCheck row — which is what
+  `markShipped()` gates on. The behaviour is correct; the status name is
+  misleading. Do not "fix" this by setting `SHIPPED` on pass: the garment has
+  cleared inspection but has not been dispatched, and claiming otherwise would
+  be a real bug. The clean fix is a `QC_PASSED` enum value and a migration.
+- **`DELETE /api/ops/cost-rules/:id` does not delete** — it sets
+  `isActive: false`. And `GET` returns inactive rows too, so a client has to
+  separate in-use from retired itself. `POST` upserts on
+  `(component, key, region)`, so re-posting a retired key revives it.
+- **`RESOLVED_CUSTOMER` cancels the order; `RESOLVED_DESIGNER` and
+  `RESOLVED_SPLIT` complete it.** Not inferable from the enum names.
+- **Verification posts to the designer PROFILE id**
+  (`POST /ops/designers/:designerId/verify`), while `GET /ops/designers`
+  returns `DesignerVerification` rows whose `id` is a different value.
+
 ## Still open
 
 - `App.tsx` still holds every page in one file. The data layer beneath it
@@ -214,6 +240,20 @@ refresh-and-replay on 401. Service modules normalise API rows into view types.
 See "Production failures". Live at that point: designs, designer directory,
 orders, auth, generation with real specs and pricing, and real `gpt-image-2`
 renders reaching Supabase and appearing in the UI.
+
+### 2026-08-10 — Designer and ops screens built, and a money bug found
+Five designer pages (`/designer`, `/bids`, `/copilot`, `/earnings`, `/quality`)
+and five ops pages (`/ops`, `/qc`, `/designers`, `/disputes`, `/cost-rules`),
+each with its own shell, service and hooks. Both sections are `React.lazy`
+split — a customer never opens them, so they are not in the main bundle.
+
+Building the ops console against the real routes surfaced the warts listed
+above, and one genuine money bug: **dispute resolution refunded before it
+recorded the resolution**, so a Razorpay refund could succeed while the write
+that explains it failed — money gone with nothing saying why, and the dispute
+still open for someone to resolve a second time. The order is now reversed and
+the resolution is idempotent; a failed refund returns `refundError` and leaves a
+recorded resolution for ops to retry.
 
 ### 2026-08-10 — Landing page rebuilt around the product's actual argument
 Added the five-step journey strip, an itemised estimate section, a budget
