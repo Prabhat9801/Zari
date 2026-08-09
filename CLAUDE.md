@@ -210,14 +210,17 @@ render.yaml docker-compose.yml DEPLOYMENT.md ZARI_SYSTEM_PROMPT.txt
 
 ## What's left
 
-1. **Split `App.tsx` into pages/components.** The data layer is done (`lib/`, `services/`, `hooks/`),
-   but every page still lives in one file. Extract them next.
-2. **Build the missing designer screens** — dashboard, bids, copilot, earnings, quality. Only
-   `/designer/profile` exists in the UI today; every one of those endpoints is already live.
-3. **Build the ops console screens** — `/ops/qc`, `/ops/designers`, `/ops/disputes`,
-   `/ops/cost-rules`. Same: the endpoints exist.
-4. **Real version tree UI** (branch, compare, jump) and the **full-screen Budget Optimizer** with
+1. **Real version tree UI** (branch, compare, jump) and the **full-screen Budget Optimizer** with
    per-substitution toggles. These are the two features that make the product distinctive, and both
    are fully supported by the API already.
-5. Persist guest designs client-side and implement the claim-on-signup transition.
-6. Delete the dead Replit scaffolding (`artifacts/api-server/`, `lib/`) once nothing imports it.
+2. **Split `App.tsx` into pages/components.** The data layer is done (`lib/`, `services/`, `hooks/`)
+   and the designer and ops sections already live in `pages/`, but every customer-facing page is
+   still in one file.
+3. Raise `connection_limit` above 1 once there is more than one concurrent user — see the `maxWait`
+   note in [PROJECT_HISTORY.md](PROJECT_HISTORY.md).
+4. Add a `QC_PASSED` value to `OrderStatus` so a passed order is distinguishable from one still
+   waiting. Read the warts section of PROJECT_HISTORY.md before touching that path.
+5. Delete the dead Replit scaffolding (`artifacts/api-server/`, `lib/`) once nothing imports it.
+
+Done since the first audit: the frontend is wired to the API with a demo fallback, guest mode
+persists and claims on signup, and the designer and ops consoles are built and routed.
