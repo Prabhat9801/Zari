@@ -14,8 +14,14 @@ real human designer makes the garment. Nothing about price, substitution, or ran
 
 **The full system spec is [ZARI_SYSTEM_PROMPT.txt](ZARI_SYSTEM_PROMPT.txt)** — product idea, UI, API
 surface, database model, money flow, deploy topology. Read that first for the whole picture.
+[PROJECT_HISTORY.md](PROJECT_HISTORY.md) is the *why*: every production failure hit so far, what
+caused it, and the decisions that would otherwise look arbitrary — read it before debugging anything.
 [prompt.txt](prompt.txt) is the original *frontend* build brief; [DEPLOYMENT.md](DEPLOYMENT.md) is
 the deploy runbook.
+
+> **Keep the docs current.** Any session that changes behaviour updates this file and adds an entry
+> to the session log in `PROJECT_HISTORY.md`. This repo is meant to be clonable onto a fresh machine
+> where the next agent has no other context.
 
 ---
 
